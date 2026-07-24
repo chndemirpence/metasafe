@@ -1,0 +1,155 @@
+{
+  "meta": {
+    "lang": "zh",
+    "dir": "ltr",
+    "name": "中文"
+  },
+  "app": {
+    "title": "MetaSafe",
+    "tagline": "分享前先清理",
+    "version": "v3.0.0"
+  },
+  "nav": {
+    "cleaner": "元数据清理器",
+    "chat": "加密聊天",
+    "urlCleaner": "链接清理器"
+  },
+  "privacy": {
+    "notice": "所有处理都在您的浏览器中进行。",
+    "emphasis": "没有任何文件被上传到服务器。",
+    "networkRequests": "网络请求"
+  },
+  "dropzone": {
+    "title": "将文件拖放到这里",
+    "or": "或者",
+    "selectButton": "选择文件",
+    "formats": "JPEG, PNG, WebP, PDF, DOCX, XLSX, PPTX, MP4",
+    "selectFolder": "选择文件夹"
+  },
+  "fileList": {
+    "title": "已选择的文件",
+    "clearAll": "清除全部"
+  },
+  "actions": {
+    "cleanAll": "🧹 清理所有文件",
+    "clean": "清理",
+    "remove": "移除",
+    "download": "下载",
+    "downloadAll": "全部下载 (ZIP)"
+  },
+  "results": {
+    "title": "✨ 已清理的文件",
+    "originalSize": "原始大小",
+    "cleanedSize": "清理后大小",
+    "metadataRemoved": "元数据已移除"
+  },
+  "metadata": {
+    "title": "发现的元数据",
+    "camera": "相机",
+    "software": "软件",
+    "dateTime": "日期时间",
+    "gps": "GPS位置",
+    "gpsWarning": "⚠️ 发现GPS位置数据！",
+    "author": "作者",
+    "creator": "创建者",
+    "producer": "生成器",
+    "device": "设备",
+    "model": "型号",
+    "make": "制造商"
+  },
+  "riskScore": {
+    "title": "隐私风险评分",
+    "low": "低风险",
+    "medium": "中等风险",
+    "high": "高风险",
+    "critical": "严重风险"
+  },
+  "education": {
+    "title": "🎓 为什么元数据危险？",
+    "gps": {
+      "title": "GPS位置",
+      "desc": "您的照片可能包含您家、工作单位或经常去的地方的精确坐标。"
+    },
+    "device": {
+      "title": "设备信息",
+      "desc": "手机型号、相机序列号等信息可以用来识别您的身份。"
+    },
+    "personal": {
+      "title": "个人数据",
+      "desc": "您的文档可能包含您的姓名、计算机用户名和编辑历史。"
+    },
+    "time": {
+      "title": "时间信息",
+      "desc": "记录了您在什么时间、什么时区拍摄照片或创建文档。"
+    }
+  },
+  "footer": {
+    "tagline": "为高风险用户提供的数字安全工具",
+    "badges": {
+      "zeroUpload": "🚫 零上传",
+      "offlineReady": "📴 离线可用",
+      "openSource": "💻 开源",
+      "e2e": "🔐 端对端加密"
+    }
+  },
+  "chat": {
+    "title": "加密聊天",
+    "waiting": "等待连接...",
+    "connected": "已连接",
+    "setupTitle": "端对端加密房间",
+    "setupDesc": "您的消息使用AES-256加密。没有服务器可以看到内容。",
+    "createRoom": "🏠 创建房间",
+    "or": "或者",
+    "pasteLinkPlaceholder": "粘贴房间链接...",
+    "joinRoom": "加入",
+    "shareLink": "与对方分享此链接：",
+    "inputPlaceholder": "输入您的消息...",
+    "securityTitle": "安全特性",
+    "security1": "✓ ECDH密钥交换 (P-256)",
+    "security2": "✓ AES-GCM 256位加密",
+    "security3": "✓ 密钥仅存于内存",
+    "security4": "✓ 完美前向保密",
+    "security5": "✓ 服务器无法查看内容",
+    "linkCopied": "链接已复制！",
+    "messageSent": "消息已发送",
+    "peerJoined": "对方已加入房间！"
+  },
+  "toast": {
+    "languageChanged": "语言已更改：中文",
+    "fileCleaned": "{name} 已清理",
+    "fileCleanedVerified": "{name} 已清理并验证",
+    "allCleaned": "{count} 个文件已清理！",
+    "gpsWarning": "⚠️ {name}：发现GPS位置数据！",
+    "downloaded": "{name} 已下载",
+    "noFiles": "没有文件需要清理"
+  },
+  "errors": {
+    "unsupportedFile": "不支持的文件类型",
+    "readFailed": "文件读取失败",
+    "cleanFailed": "清理失败"
+  },
+  "urlCleaner": {
+    "title": "链接清理器",
+    "description": "分享前删除链接中的跟踪参数。",
+    "cleanButton": "清理链接",
+    "cleaned": "已清理！",
+    "removed": "已删除：",
+    "trackers": "个跟踪器",
+    "saved": "节省：",
+    "removedTrackers": "已删除的跟踪器",
+    "infoTitle": "支持的平台",
+    "infoText": "删除UTM参数、点击ID和联盟代码。",
+    "urlCopied": "链接已复制"
+  },
+  "screenshot": {
+    "detected": "检测到截图",
+    "warning": "此文件是截图 - 可能包含设备信息！"
+  },
+  "map": {
+    "title": "检测到GPS位置",
+    "coordinates": "坐标:",
+    "warning": "警告:",
+    "warningText": "此位置已嵌入您的照片中。清理后将被移除。",
+    "showOnMap": "在地图上显示"
+  }
+}

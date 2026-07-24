@@ -1,0 +1,159 @@
+{
+  "app": {
+    "title": "MetaSafe",
+    "tagline": "Paylaşmadan Önce Temizle",
+    "version": "v3.0.0"
+  },
+  "nav": {
+    "cleaner": "Metadata Temizleyici",
+    "urlCleaner": "Link Temizleyici",
+    "chat": "Şifreli Mesajlaşma"
+  },
+  "privacy": {
+    "notice": "Tüm işlem tarayıcınızda gerçekleşir.",
+    "emphasis": "Hiçbir dosya sunucuya gönderilmez.",
+    "networkRequests": "ağ isteği"
+  },
+  "dropzone": {
+    "title": "Dosyalarınızı buraya sürükleyin",
+    "or": "veya",
+    "selectButton": "Dosya Seç",
+    "formats": "JPEG, PNG, WebP, SVG, GIF, PDF, DOCX, XLSX, PPTX, MP4, MP3",
+    "selectFolder": "Klasör Seç"
+  },
+  "fileList": {
+    "title": "Seçilen Dosyalar",
+    "clearAll": "Tümünü Kaldır"
+  },
+  "actions": {
+    "cleanAll": "🧹 Tüm Dosyaları Temizle",
+    "clean": "Temizle",
+    "remove": "Kaldır",
+    "download": "İndir",
+    "downloadAll": "Tümünü İndir (ZIP)"
+  },
+  "results": {
+    "title": "✨ Temizlenen Dosyalar",
+    "before": "Önce",
+    "after": "Sonra"
+  },
+  "status": {
+    "reading": "📖 Okunuyor...",
+    "ready": "✓ Hazır",
+    "cleaning": "🔄 Temizleniyor...",
+    "done": "✅ Temizlendi",
+    "error": "❌ Hata"
+  },
+  "metadata": {
+    "title": "Bulunan Metadata",
+    "items": "öğe",
+    "dangerous": "tehlikeli!",
+    "none": "✓ Metadata bulunamadı - Dosya güvenli",
+    "more": "ve {count} öğe daha",
+    "gpsWarning": "📍 GPS Konum Verisi Bulundu!"
+  },
+  "risk": {
+    "critical": "Kritik Risk",
+    "high": "Yüksek Risk",
+    "medium": "Orta Risk",
+    "low": "Düşük Risk",
+    "safe": "Güvenli"
+  },
+  "categories": {
+    "location": "Konum Bilgisi",
+    "device": "Cihaz Bilgisi",
+    "personal": "Kişisel Bilgi",
+    "temporal": "Zaman Bilgisi",
+    "technical": "Teknik Bilgi"
+  },
+  "verification": {
+    "success": "✓ Doğrulandı: 0 hassas metadata",
+    "warning": "⚠ Bazı metadata kalmış olabilir"
+  },
+  "education": {
+    "title": "🎓 Neden Metadata Tehlikeli?",
+    "gps": {
+      "title": "GPS Konumu",
+      "desc": "Fotoğraflarınız evinizin, iş yerinizin veya sık gittiğiniz yerlerin tam koordinatlarını içerebilir."
+    },
+    "device": {
+      "title": "Cihaz Bilgisi",
+      "desc": "Telefon modeli, kamera seri numarası gibi bilgiler sizi tanımlamak için kullanılabilir."
+    },
+    "personal": {
+      "title": "Kişisel Veriler",
+      "desc": "Belgelerinizde adınız, bilgisayar kullanıcı adınız ve düzenleme geçmişiniz gizli olabilir."
+    },
+    "time": {
+      "title": "Zaman Bilgisi",
+      "desc": "Ne zaman, hangi saat diliminde fotoğraf çektiğiniz veya belge oluşturduğunuz kaydedilir."
+    }
+  },
+  "footer": {
+    "tagline": "Risk altındaki kullanıcılar için dijital güvenlik aracı",
+    "badges": {
+      "zeroUpload": "🚫 Sıfır Upload",
+      "offlineReady": "📴 Çevrimdışı Çalışır",
+      "openSource": "💻 Açık Kaynak",
+      "e2e": "🔐 E2E Şifreleme"
+    }
+  },
+  "chat": {
+    "title": "Şifreli Mesajlaşma",
+    "waiting": "Bağlantı bekleniyor...",
+    "connected": "Bağlı",
+    "setupTitle": "End-to-End Şifreli Oda",
+    "setupDesc": "Mesajlarınız AES-256 ile şifrelenir. Hiçbir sunucu içeriği göremez.",
+    "createRoom": "🏠 Oda Oluştur",
+    "or": "veya",
+    "pasteLinkPlaceholder": "Oda linkini yapıştır...",
+    "joinRoom": "Katıl",
+    "shareLink": "Bu linki karşı tarafla paylaşın:",
+    "inputPlaceholder": "Mesajınızı yazın...",
+    "securityTitle": "Güvenlik Özellikleri",
+    "security1": "✓ ECDH anahtar değişimi (P-256)",
+    "security2": "✓ AES-GCM 256-bit şifreleme",
+    "security3": "✓ Anahtarlar sadece bellekte",
+    "security4": "✓ Perfect Forward Secrecy",
+    "security5": "✓ Sunucu içerik göremez",
+    "linkCopied": "Link kopyalandı!",
+    "messageSent": "Mesaj gönderildi",
+    "peerJoined": "Karşı taraf odaya katıldı!"
+  },
+  "toast": {
+    "languageChanged": "Dil değiştirildi: Türkçe",
+    "fileCleaned": "{name} temizlendi",
+    "fileCleanedVerified": "{name} temizlendi ve doğrulandı",
+    "allCleaned": "{count} dosya temizlendi!",
+    "gpsWarning": "⚠️ {name}: GPS konum verisi bulundu!",
+    "downloaded": "{name} indirildi",
+    "noFiles": "Temizlenecek dosya yok"
+  },
+  "errors": {
+    "unsupportedFile": "Desteklenmeyen dosya türü",
+    "readFailed": "Dosya okunamadı",
+    "cleanFailed": "Temizleme başarısız"
+  },
+  "urlCleaner": {
+    "title": "Link Temizleyici",
+    "description": "Paylaşmadan önce linklerden izleme parametrelerini kaldırın. Facebook, Google, Twitter ve diğer platformların takip kodları temizlenir.",
+    "inputPlaceholder": "https://example.com?utm_source=facebook&fbclid=...",
+    "cleanButton": "Linki Temizle",
+    "cleaned": "Temizlendi!",
+    "removed": "Kaldırılan:",
+    "trackers": "izleyici",
+    "saved": "Tasarruf:",
+    "removedTrackers": "Kaldırılan İzleyiciler",
+    "infoTitle": "Desteklenen Platformlar",
+    "infoText": "UTM parametreleri, click ID'ler, affiliate kodları ve diğer tüm izleme parametreleri kaldırılır.",
+    "noTrackers": "Bu URL'de izleyici bulunamadı",
+    "urlCopied": "URL kopyalandı"
+  },
+  "map": {
+    "title": "GPS Konumu Tespit Edildi",
+    "coordinates": "Koordinatlar:",
+    "warning": "Uyarı:",
+    "warningText": "Bu konum fotoğrafınızda gömülü. Temizleme ile kaldırılacak.",
+    "showOnMap": "Haritada Göster"
+  }
+}

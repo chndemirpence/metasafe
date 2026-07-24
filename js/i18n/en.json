@@ -1,0 +1,163 @@
+{
+  "app": {
+    "title": "MetaSafe",
+    "tagline": "Clean Before You Share",
+    "version": "v3.0.0"
+  },
+  "nav": {
+    "cleaner": "Metadata Cleaner",
+    "urlCleaner": "Link Cleaner",
+    "chat": "Encrypted Chat"
+  },
+  "privacy": {
+    "notice": "All processing happens in your browser.",
+    "emphasis": "No files are ever uploaded to any server.",
+    "networkRequests": "network requests"
+  },
+  "dropzone": {
+    "title": "Drag and drop your files here",
+    "or": "or",
+    "selectButton": "Select Files",
+    "formats": "JPEG, PNG, WebP, SVG, GIF, PDF, DOCX, XLSX, PPTX, MP4, MP3",
+    "selectFolder": "Select Folder"
+  },
+  "fileList": {
+    "title": "Selected Files",
+    "clearAll": "Clear All"
+  },
+  "actions": {
+    "cleanAll": "🧹 Clean All Files",
+    "clean": "Clean",
+    "remove": "Remove",
+    "download": "Download",
+    "downloadAll": "Download All (ZIP)"
+  },
+  "results": {
+    "title": "✨ Cleaned Files",
+    "before": "Before",
+    "after": "After"
+  },
+  "status": {
+    "reading": "📖 Reading...",
+    "ready": "✓ Ready",
+    "cleaning": "🔄 Cleaning...",
+    "done": "✅ Cleaned",
+    "error": "❌ Error"
+  },
+  "metadata": {
+    "title": "Metadata Found",
+    "items": "items",
+    "dangerous": "dangerous!",
+    "none": "✓ No metadata found - File is safe",
+    "more": "and {count} more items",
+    "gpsWarning": "📍 GPS Location Data Found!"
+  },
+  "risk": {
+    "critical": "Critical Risk",
+    "high": "High Risk",
+    "medium": "Medium Risk",
+    "low": "Low Risk",
+    "safe": "Safe"
+  },
+  "categories": {
+    "location": "Location Data",
+    "device": "Device Info",
+    "personal": "Personal Info",
+    "temporal": "Time Info",
+    "technical": "Technical Info"
+  },
+  "verification": {
+    "success": "✓ Verified: 0 sensitive metadata",
+    "warning": "⚠ Some metadata may remain"
+  },
+  "education": {
+    "title": "🎓 Why is Metadata Dangerous?",
+    "gps": {
+      "title": "GPS Location",
+      "desc": "Your photos may contain exact coordinates of your home, workplace, or frequently visited places."
+    },
+    "device": {
+      "title": "Device Info",
+      "desc": "Phone model, camera serial number and other details can be used to identify you."
+    },
+    "personal": {
+      "title": "Personal Data",
+      "desc": "Your documents may contain your name, computer username, and editing history."
+    },
+    "time": {
+      "title": "Time Info",
+      "desc": "When and in which timezone you took a photo or created a document is recorded."
+    }
+  },
+  "footer": {
+    "tagline": "Digital security tool for at-risk users",
+    "badges": {
+      "zeroUpload": "🚫 Zero Upload",
+      "offlineReady": "📴 Offline Ready",
+      "openSource": "💻 Open Source",
+      "e2e": "🔐 E2E Encryption"
+    }
+  },
+  "chat": {
+    "title": "Encrypted Messaging",
+    "waiting": "Waiting for connection...",
+    "connected": "Connected",
+    "setupTitle": "End-to-End Encrypted Room",
+    "setupDesc": "Your messages are encrypted with AES-256. No server can see the content.",
+    "createRoom": "🏠 Create Room",
+    "or": "or",
+    "pasteLinkPlaceholder": "Paste room link...",
+    "joinRoom": "Join",
+    "shareLink": "Share this link with the other party:",
+    "inputPlaceholder": "Type your message...",
+    "securityTitle": "Security Features",
+    "security1": "✓ ECDH key exchange (P-256)",
+    "security2": "✓ AES-GCM 256-bit encryption",
+    "security3": "✓ Keys only in memory (no localStorage)",
+    "security4": "✓ Perfect Forward Secrecy",
+    "security5": "✓ Server cannot see content",
+    "linkCopied": "Link copied!",
+    "messageSent": "Message sent",
+    "peerJoined": "Peer joined the room!"
+  },
+  "toast": {
+    "languageChanged": "Language changed: English",
+    "fileCleaned": "{name} cleaned",
+    "fileCleanedVerified": "{name} cleaned and verified",
+    "allCleaned": "{count} files cleaned!",
+    "gpsWarning": "⚠️ {name}: GPS location data found!",
+    "downloaded": "{name} downloaded",
+    "noFiles": "No files to clean"
+  },
+  "errors": {
+    "unsupportedFile": "Unsupported file type",
+    "readFailed": "Failed to read file",
+    "cleanFailed": "Cleaning failed"
+  },
+  "urlCleaner": {
+    "title": "Link Cleaner",
+    "description": "Remove tracking parameters from links before sharing. Facebook, Google, Twitter and other platform trackers will be cleaned.",
+    "inputPlaceholder": "https://example.com?utm_source=facebook&fbclid=...",
+    "cleanButton": "Clean Link",
+    "cleaned": "Cleaned!",
+    "removed": "Removed:",
+    "trackers": "trackers",
+    "saved": "Saved:",
+    "removedTrackers": "Removed Trackers",
+    "infoTitle": "Supported Platforms",
+    "infoText": "UTM parameters, click IDs, affiliate codes and all other tracking parameters are removed.",
+    "noTrackers": "No trackers found in this URL",
+    "urlCopied": "URL copied"
+  },
+  "screenshot": {
+    "detected": "Screenshot Detected",
+    "warning": "This file is detected as a screenshot - may contain device info!"
+  },
+  "map": {
+    "title": "GPS Location Detected",
+    "coordinates": "Coordinates:",
+    "warning": "Warning:",
+    "warningText": "This location is embedded in your photo. It will be removed after cleaning.",
+    "showOnMap": "Show on Map"
+  }
+}

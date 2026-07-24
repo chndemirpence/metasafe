@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Strict Content-Security-Policy: the app can make NO external network requests.
+       Everything (scripts, styles, fonts, images, data) is same-origin/inline/data/blob only.
+       This makes the "zero upload / offline" promise enforceable and auditable. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <!-- Note: also send `Content-Security-Policy: frame-ancestors 'none'` and
+       `X-Content-Type-Options: nosniff` as HTTP headers at deploy (meta ignores frame-ancestors). -->
+  <meta name="description" content="MetaSafe - Offline, privacy-first metadata cleaner. 100% in your browser, zero uploads, no tracking.">
+  <meta name="theme-color" content="#0a0a1a">
+  
+  <title>MetaSafe - Paylaşmadan Önce Temizle</title>
+  
+  <link rel="icon" href="/assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/css/style-futuristic.css">
+  <!-- No external CSS/fonts/CDN: everything is bundled and same-origin. -->
+</head>
+<body>
+  <!-- Animated Background -->
+  <div class="cyber-bg"></div>
+  
+  <!-- Header -->
+  <header>
+    <div class="header-content">
+      <h1 class="logo glitch" data-text="METASAFE">METASAFE</h1>
+      <p class="tagline" data-i18n="app.tagline">PAYLAŞMADAN ÖNCE TEMİZLE</p>
+      
+      <!-- Controls -->
+      <div class="header-controls">
+        <div class="language-selector">
+          <button class="lang-btn active" data-lang="tr">TR</button>
+          <button class="lang-btn" data-lang="en">EN</button>
+          <button class="lang-btn" data-lang="fa">فا</button>
+          <button class="lang-btn" data-lang="ar">عر</button>
+          <button class="lang-btn" data-lang="ru">RU</button>
+                      <button class="lang-btn" data-lang="zh">中</button>
+            <button class="lang-btn" data-lang="ur">ار</button>
+          </div>
+        <button id="theme-toggle" class="theme-toggle" title="Tema değiştir">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Privacy Notice -->
+    <div class="privacy-notice glass-card">
+      <span class="icon">🔒</span>
+      <div class="text">
+        <span data-i18n="privacy.notice">Tüm işlem tarayıcınızda gerçekleşir.</span>
+        <strong data-i18n="privacy.emphasis">Hiçbir dosya sunucuya gönderilmez.</strong>
+      </div>
+      <div class="network-monitor">
+        <span>0</span>
+        <span data-i18n="privacy.networkRequests">ağ isteği</span>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="cleaner">
+        <span>🧹</span>
+        <span data-i18n="nav.cleaner">Metadata Temizleyici</span>
+      </button>
+      <button class="nav-tab" data-tab="urlcleaner">
+        <span>🔗</span>
+        <span data-i18n="nav.urlCleaner">Link Temizleyici</span>
+      </button>
+    </div>
+
+    <!-- Tab: Metadata Cleaner -->
+    <section id="tab-cleaner" class="tab-content active">
+      <!-- Dropzone -->
+      <div class="dropzone glass-card" id="dropzone">
+        <div class="dropzone-icon">📁</div>
+        <h2 data-i18n="dropzone.title">Dosyalarınızı buraya sürükleyin</h2>
+        <p data-i18n="dropzone.or">veya</p>
+        <div class="dropzone-buttons">
+          <button class="btn btn-primary" id="select-files-btn">
+            <span data-i18n="dropzone.selectButton">Dosya Seç</span>
+          </button>
+          <button class="btn btn-outline" id="select-folder-btn">
+            <span>📂</span> <span data-i18n="dropzone.selectFolder">Klasör Seç</span>
+          </button>
+        </div>
+        <p class="dropzone-formats" data-i18n="dropzone.formats">
+          JPEG, PNG, WebP, PDF, DOCX, XLSX, PPTX, MP4
+        </p>
+        <input type="file" id="file-input" multiple accept="image/*,.svg,.gif,.pdf,.docx,.xlsx,.pptx,.mp4,.mov,.mp3,.wav,.m4a,.ogg,.flac,.eml,.heic,.heif,.tiff,.tif" hidden>
+        <input type="file" id="folder-input" webkitdirectory multiple hidden>
+      </div>
+
+      <!-- File List -->
+      <div id="file-list" class="file-list"></div>
+
+      <!-- Processing Options -->
+      <div id="processing-options" class="processing-options glass-card" style="display: none;">
+        <h3 class="options-title">⚙️ İşlem Seçenekleri</h3>
+        <div class="options-grid">
+          <label class="option-toggle">
+            <input type="checkbox" id="opt-compress">
+            <span class="toggle-slider"></span>
+            <span class="option-label">🗜️ Sıkıştır</span>
+            <span class="option-desc">Metadata sil + dosya boyutunu optimize et</span>
+          </label>
+          <div id="compress-quality-wrap" class="quality-wrap" style="display: none;">
+            <label for="opt-quality">Kalite: <span id="quality-value">85</span>%</label>
+            <input type="range" id="opt-quality" min="60" max="95" value="85" step="5">
+          </div>
+          <label class="option-toggle">
+            <input type="checkbox" id="opt-paranoid">
+            <span class="toggle-slider"></span>
+            <span class="option-label">🔒 Paranoid Mod</span>
+            <span class="option-desc">Canvas re-encode ile %100 garanti temiz (steganografi dahil)</span>
+          </label>
+          <label class="option-toggle">
+            <input type="checkbox" id="opt-safe-share">
+            <span class="toggle-slider"></span>
+            <span class="option-label">🛡️ Güvenli Paylaşım</span>
+            <span class="option-desc">Aktivist/gazeteci modu: max strip + boyut randomize + dosya adı temizle</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div id="actions" class="actions" style="display: none;">
+        <button class="btn btn-primary" id="clean-all-btn">
+          <span data-i18n="actions.cleanAll">🧹 Tüm Dosyaları Temizle</span>
+        </button>
+        <button class="btn btn-outline" id="clear-all-btn">
+          <span data-i18n="fileList.clearAll">Temizle</span>
+        </button>
+      </div>
+
+      <!-- Results -->
+      <div id="results-section" class="results-section" style="display: none;">
+        <h2 data-i18n="results.title">✨ Temizlenmiş Dosyalar</h2>
+        <div id="results-list" class="results-list"></div>
+        <button class="btn btn-success" id="download-all-btn">
+          <span data-i18n="actions.downloadAll">📦 Hepsini İndir (ZIP)</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Tab: URL Cleaner -->
+    <section id="tab-urlcleaner" class="tab-content">
+      <div class="url-cleaner-container">
+        <div class="url-input-section glass-card">
+          <h3>🔗 <span data-i18n="urlCleaner.title">Link Temizleyici</span></h3>
+          <p class="url-description" data-i18n="urlCleaner.description">
+            Paylaşmadan önce linklerden izleme parametrelerini kaldırın. Facebook, Google, Twitter ve diğer platformların takip kodları temizlenir.
+          </p>
+          
+          <div class="url-input-group">
+            <textarea class="url-input" id="url-input" rows="3" 
+                      placeholder="https://example.com?utm_source=facebook&fbclid=..." 
+                      data-i18n-placeholder="urlCleaner.inputPlaceholder"></textarea>
+            <button class="btn btn-primary" id="clean-url-btn">
+              <span>🧹</span>
+              <span data-i18n="urlCleaner.cleanButton">Linki Temizle</span>
+            </button>
+          </div>
+          
+          <!-- URL Result -->
+          <div class="url-result" id="url-result" style="display: none;">
+            <div class="url-result-header">
+              <span class="url-result-icon">✅</span>
+              <span data-i18n="urlCleaner.cleaned">Temizlendi!</span>
+            </div>
+            <div class="url-result-box">
+              <input type="text" class="cleaned-url-display" id="cleaned-url" readonly>
+              <button class="btn btn-outline" id="copy-url-btn">📋</button>
+            </div>
+            <div class="url-stats">
+              <span class="stat">
+                <span class="stat-label" data-i18n="urlCleaner.removed">Kaldırılan:</span>
+                <span class="stat-value" id="removed-count">0</span>
+                <span data-i18n="urlCleaner.trackers">izleyici</span>
+              </span>
+              <span class="stat">
+                <span class="stat-label" data-i18n="urlCleaner.saved">Tasarruf:</span>
+                <span class="stat-value" id="size-saved">0</span>
+                <span>karakter</span>
+              </span>
+            </div>
+          </div>
+          
+          <!-- Removed Trackers List -->
+          <div class="trackers-list" id="trackers-list" style="display: none;">
+            <h4 data-i18n="urlCleaner.removedTrackers">Kaldırılan İzleyiciler</h4>
+            <div class="tracker-items" id="tracker-items">
+              <!-- Tracker items will be inserted here -->
+            </div>
+          </div>
+        </div>
+        
+        <!-- URL Cleaner Info -->
+        <div class="url-info glass-card">
+          <h4>🛡️ <span data-i18n="urlCleaner.infoTitle">Desteklenen Platformlar</span></h4>
+          <div class="platform-badges">
+            <span class="platform-badge google">Google</span>
+            <span class="platform-badge facebook">Facebook</span>
+            <span class="platform-badge twitter">Twitter/X</span>
+            <span class="platform-badge tiktok">TikTok</span>
+            <span class="platform-badge amazon">Amazon</span>
+            <span class="platform-badge youtube">YouTube</span>
+            <span class="platform-badge linkedin">LinkedIn</span>
+            <span class="platform-badge email">Email</span>
+          </div>
+          <p class="url-info-text" data-i18n="urlCleaner.infoText">
+            UTM parametreleri, click ID'ler, affiliate kodları ve diğer tüm izleme parametreleri kaldırılır.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Education Section -->
+    <section class="education-section">
+      <h2 data-i18n="education.title">🎓 Neden Metadata Tehlikeli?</h2>
+      <div class="education-cards">
+        <div class="education-card">
+          <span class="icon">📍</span>
+          <h3 data-i18n="education.gps.title">GPS Konumu</h3>
+          <p data-i18n="education.gps.desc">
+            Fotoğraflarınız evinizin, işyerinizin veya sık gittiğiniz yerlerin koordinatlarını içerebilir.
+          </p>
+        </div>
+        <div class="education-card">
+          <span class="icon">📱</span>
+          <h3 data-i18n="education.device.title">Cihaz Bilgisi</h3>
+          <p data-i18n="education.device.desc">
+            Telefon modeli, kamera seri numarası ve diğer detaylar sizi tanımlamak için kullanılabilir.
+          </p>
+        </div>
+        <div class="education-card">
+          <span class="icon">👤</span>
+          <h3 data-i18n="education.personal.title">Kişisel Veriler</h3>
+          <p data-i18n="education.personal.desc">
+            Belgeleriniz adınızı, bilgisayar kullanıcı adınızı ve düzenleme geçmişini içerebilir.
+          </p>
+        </div>
+        <div class="education-card">
+          <span class="icon">🕐</span>
+          <h3 data-i18n="education.time.title">Zaman Bilgisi</h3>
+          <p data-i18n="education.time.desc">
+            Fotoğraf çektiğiniz veya belge oluşturduğunuz zaman ve saat dilimi kaydedilir.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p class="footer-tagline" data-i18n="footer.tagline">
+      Risk altındaki kullanıcılar için dijital güvenlik aracı
+    </p>
+    <div class="footer-badges">
+      <span class="footer-badge" data-i18n="footer.badges.zeroUpload">🚫 Sıfır Upload</span>
+      <span class="footer-badge" data-i18n="footer.badges.offlineReady">📴 Çevrimdışı Çalışır</span>
+      <span class="footer-badge" data-i18n="footer.badges.openSource">💻 Açık Kaynak</span>
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com" target="_blank">GitHub</a>
+      <a href="https://opentech.fund" target="_blank">OTF</a>
+    </div>
+  </footer>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- GPS Map Modal -->
+  <div id="gps-map-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content map-modal">
+      <div class="modal-header">
+        <h3>📍 <span data-i18n="map.title">GPS Konumu Tespit Edildi</span></h3>
+        <button class="modal-close" id="close-map-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="gps-coords-display">
+          <div class="gps-coords-value" id="map-coords"></div>
+          <p class="gps-privacy-note">🔒 <span data-i18n="map.offlineNote">To protect you, this location is shown as text only and is never sent to any online map.</span></p>
+        </div>
+        <div class="map-info">
+          <p><strong data-i18n="map.warning">Uyarı:</strong> <span data-i18n="map.warningText">Bu konum fotoğrafınızda gömülü. Temizleme ile kaldırılacak.</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/lib/piexif.js"></script>
+  <script src="/lib/pdf-lib.min.js"></script>
+  <script src="/lib/jszip.min.js"></script>
+  <!-- No Leaflet / no external map: GPS is shown as text only, so a photo's location
+       is never sent to a third-party tile server. -->
+  <!-- Service Worker registration lives inside app.js (no inline scripts, so the
+       CSP can forbid inline JS entirely — see script-src 'self' below). -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
