@@ -54,9 +54,11 @@ async function readAudioMetadata(file) {
     switch (audioType) {
       case 'mp3':
         readID3Tags(uint8, view, metadata);
+        readMP3FrameInfo(uint8, view, metadata, file.size);
         break;
       case 'wav':
         readWavMetadata(uint8, view, metadata);
+        readWavTechnical(view, metadata, file.size);
         break;
       case 'm4a':
         readM4AMetadata(uint8, view, metadata);
@@ -732,6 +734,112 @@ function concatenateUint8Arrays(arrays) {
   }
   
   return result;
+}
+
+// ===== Technical Info: MP3 Frame Header =====
+function readMP3FrameInfo(uint8, view, metadata, fileSize) {
+  // Find first sync word (0xFFE0 mask)
+  let offset = 0;
+  // Skip ID3v2 tag if present
+  if (uint8[0] === 0x49 && uint8[1] === 0x44 && uint8[2] === 0x33) {
+    const tagSize = ((uint8[6] & 0x7F) << 21) | ((uint8[7] & 0x7F) << 14) | 
+                    ((uint8[8] & 0x7F) << 7) | (uint8[9] & 0x7F);
+    offset = tagSize + 10;
+  }
+  
+  // Search for frame sync
+  while (offset < uint8.length - 4) {
+    if (uint8[offset] === 0xFF && (uint8[offset + 1] & 0xE0) === 0xE0) {
+      break;
+    }
+    offset++;
+  }
+  
+  if (offset >= uint8.length - 4) return;
+  
+  const header = view.getUint32(offset);
+  const versionBits = (header >> 19) & 0x03;
+  const layerBits = (header >> 17) & 0x03;
+  const bitrateIdx = (header >> 12) & 0x0F;
+  const sampleIdx = (header >> 10) & 0x03;
+  const channelMode = (header >> 6) & 0x03;
+  
+  // MPEG version
+  const versions = { 0: '2.5', 2: '2', 3: '1' };
+  const version = versions[versionBits];
+  
+  // Layer
+  const layers = { 1: 'III', 2: 'II', 3: 'I' };
+  const layer = layers[layerBits];
+  
+  // Bitrate table (MPEG1 Layer III)
+  const bitrateTable = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
+  const bitrate = bitrateTable[bitrateIdx];
+  
+  // Sample rate table
+  const sampleRates = {
+    3: [44100, 48000, 32000], // MPEG1
+    2: [22050, 24000, 16000], // MPEG2
+    0: [11025, 12000, 8000]   // MPEG2.5
+  };
+  const sampleRate = (sampleRates[versionBits] || [])[sampleIdx];
+  
+  // Channel mode
+  const channels = channelMode === 3 ? 'Mono' : 'Stereo';
+  
+  if (version && layer) {
+    metadata.items.push({ key: 'Format', value: `MPEG${version} Layer ${layer}`, category: 'technical' });
+  }
+  if (bitrate > 0) {
+    metadata.items.push({ key: 'Bitrate', value: `${bitrate} kbps`, category: 'technical' });
+  }
+  if (sampleRate > 0) {
+    metadata.items.push({ key: 'Sample Rate', value: `${sampleRate} Hz`, category: 'technical' });
+  }
+  metadata.items.push({ key: 'Channels', value: channels, category: 'technical' });
+  
+  // Estimate duration from bitrate
+  if (bitrate > 0) {
+    const audioBytes = fileSize - offset;
+    const durationSec = (audioBytes * 8) / (bitrate * 1000);
+    if (durationSec > 0 && durationSec < 360000) {
+      const min = Math.floor(durationSec / 60);
+      const sec = Math.floor(durationSec % 60);
+      metadata.items.push({ key: 'Duration (est.)', value: `${min}:${sec.toString().padStart(2, '0')}`, category: 'technical' });
+    }
+  }
+}
+
+// ===== Technical Info: WAV Header =====
+function readWavTechnical(view, metadata, fileSize) {
+  // WAV header: RIFF....WAVEfmt 
+  // fmt chunk at offset 12: 'fmt ' + size(4) + audioFormat(2) + channels(2) + sampleRate(4) + byteRate(4) + blockAlign(2) + bitsPerSample(2)
+  try {
+    if (view.byteLength < 44) return;
+    const channels = view.getUint16(22, true);
+    const sampleRate = view.getUint32(24, true);
+    const byteRate = view.getUint32(28, true);
+    const bitsPerSample = view.getUint16(34, true);
+    
+    if (sampleRate > 0 && sampleRate <= 192000) {
+      metadata.items.push({ key: 'Sample Rate', value: `${sampleRate} Hz`, category: 'technical' });
+    }
+    if (channels > 0 && channels <= 16) {
+      metadata.items.push({ key: 'Channels', value: channels === 1 ? 'Mono' : channels === 2 ? 'Stereo' : `${channels}ch`, category: 'technical' });
+    }
+    if (bitsPerSample > 0) {
+      metadata.items.push({ key: 'Bit Depth', value: `${bitsPerSample}-bit`, category: 'technical' });
+    }
+    if (byteRate > 0) {
+      metadata.items.push({ key: 'Bitrate', value: `${Math.round(byteRate * 8 / 1000)} kbps`, category: 'technical' });
+      const duration = (fileSize - 44) / byteRate;
+      if (duration > 0 && duration < 360000) {
+        const min = Math.floor(duration / 60);
+        const sec = Math.floor(duration % 60);
+        metadata.items.push({ key: 'Duration (est.)', value: `${min}:${sec.toString().padStart(2, '0')}`, category: 'technical' });
+      }
+    }
+  } catch (e) { /* non-critical */ }
 }
 
 // Export

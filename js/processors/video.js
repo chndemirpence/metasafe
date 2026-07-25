@@ -143,7 +143,8 @@ function parseMvhd(buffer, box) {
   return {
     creationTime: creationTime > macToUnix ? new Date((creationTime - macToUnix) * 1000) : null,
     modificationTime: modificationTime > macToUnix ? new Date((modificationTime - macToUnix) * 1000) : null,
-    duration: timescale > 0 ? duration / timescale : 0
+    duration: timescale > 0 ? duration / timescale : 0,
+    timescale
   };
 }
 
@@ -169,6 +170,136 @@ function parseGpsXyz(buffer, box) {
     };
   }
   return null;
+}
+
+// Parse trak box to extract codec, resolution, sample rate
+function parseTrakInfo(buffer, trakBox) {
+  const items = [];
+  const view = new DataView(buffer);
+  
+  try {
+    const trakChildren = parseNestedBoxesSync(buffer, trakBox);
+    const mdiaBox = trakChildren.find(b => b.type === 'mdia');
+    if (!mdiaBox) return null;
+    
+    const mdiaChildren = parseNestedBoxesSync(buffer, mdiaBox);
+    
+    // hdlr tells us if this is video or audio track
+    const hdlrBox = mdiaChildren.find(b => b.type === 'hdlr');
+    let handlerType = '';
+    if (hdlrBox && hdlrBox.dataSize >= 12) {
+      handlerType = String.fromCharCode(
+        view.getUint8(hdlrBox.dataOffset + 8),
+        view.getUint8(hdlrBox.dataOffset + 9),
+        view.getUint8(hdlrBox.dataOffset + 10),
+        view.getUint8(hdlrBox.dataOffset + 11)
+      );
+    }
+    
+    const minfBox = mdiaChildren.find(b => b.type === 'minf');
+    if (!minfBox) return items;
+    
+    const minfChildren = parseNestedBoxesSync(buffer, minfBox);
+    const stblBox = minfChildren.find(b => b.type === 'stbl');
+    if (!stblBox) return items;
+    
+    const stblChildren = parseNestedBoxesSync(buffer, stblBox);
+    const stsdBox = stblChildren.find(b => b.type === 'stsd');
+    if (!stsdBox || stsdBox.dataSize < 16) return items;
+    
+    // stsd: version(4) + entry_count(4) + entries
+    const entryCount = view.getUint32(stsdBox.dataOffset + 4);
+    if (entryCount === 0) return items;
+    
+    // First entry starts at offset 8
+    const entryOffset = stsdBox.dataOffset + 8;
+    if (entryOffset + 8 > buffer.byteLength) return items;
+    
+    const entrySize = view.getUint32(entryOffset);
+    const codec = String.fromCharCode(
+      view.getUint8(entryOffset + 4),
+      view.getUint8(entryOffset + 5),
+      view.getUint8(entryOffset + 6),
+      view.getUint8(entryOffset + 7)
+    ).trim();
+    
+    if (codec) {
+      const codecNames = {
+        'avc1': 'H.264/AVC', 'hvc1': 'H.265/HEVC', 'hev1': 'H.265/HEVC',
+        'vp08': 'VP8', 'vp09': 'VP9', 'av01': 'AV1',
+        'mp4a': 'AAC', '.mp3': 'MP3', 'ac-3': 'AC-3', 'ec-3': 'E-AC-3',
+        'Opus': 'Opus', 'fLaC': 'FLAC', 'alac': 'ALAC'
+      };
+      items.push({
+        key: handlerType === 'vide' ? 'Video Codec' : handlerType === 'soun' ? 'Audio Codec' : 'Codec',
+        value: codecNames[codec] || codec.toUpperCase(),
+        category: 'technical'
+      });
+    }
+    
+    // Video track: resolution at fixed offset in visual sample entry
+    if (handlerType === 'vide' && entryOffset + 32 <= buffer.byteLength) {
+      // Visual sample entry: 6 reserved + 2 data_ref_idx + 16 pre-defined + 2 width + 2 height
+      const width = view.getUint16(entryOffset + 8 + 24);
+      const height = view.getUint16(entryOffset + 8 + 26);
+      if (width > 0 && height > 0 && width < 16384 && height < 16384) {
+        items.push({
+          key: 'Resolution',
+          value: `${width}×${height}`,
+          category: 'technical'
+        });
+      }
+    }
+    
+    // Audio track: sample rate at fixed offset
+    if (handlerType === 'soun' && entryOffset + 36 <= buffer.byteLength) {
+      // Audio sample entry: 6 reserved + 2 data_ref + 8 reserved + 2 channels + 2 sample_size + 4 reserved + 4 sample_rate(16.16)
+      const channels = view.getUint16(entryOffset + 8 + 8);
+      const sampleRate = view.getUint16(entryOffset + 8 + 24); // integer part of 16.16
+      if (sampleRate > 0 && sampleRate <= 192000) {
+        items.push({
+          key: 'Sample Rate',
+          value: `${sampleRate} Hz`,
+          category: 'technical'
+        });
+      }
+      if (channels > 0 && channels <= 16) {
+        items.push({
+          key: 'Channels',
+          value: channels === 1 ? 'Mono' : channels === 2 ? 'Stereo' : `${channels}ch`,
+          category: 'technical'
+        });
+      }
+    }
+  } catch (e) { /* non-critical parsing failure */ }
+  
+  return items.length > 0 ? items : null;
+}
+
+// Synchronous nested box parser (avoids async overhead in tight loops)
+function parseNestedBoxesSync(buffer, parentBox) {
+  const view = new DataView(buffer);
+  const children = [];
+  let offset = parentBox.dataOffset;
+  const end = parentBox.dataOffset + parentBox.dataSize;
+  
+  while (offset + 8 <= end && offset + 8 <= buffer.byteLength) {
+    const size = view.getUint32(offset);
+    if (size < 8) break;
+    const type = String.fromCharCode(
+      view.getUint8(offset + 4), view.getUint8(offset + 5),
+      view.getUint8(offset + 6), view.getUint8(offset + 7)
+    );
+    children.push({
+      type,
+      offset,
+      size,
+      dataOffset: offset + 8,
+      dataSize: size - 8
+    });
+    offset += size;
+  }
+  return children;
 }
 
 // Metadata boxes to look for
@@ -219,8 +350,10 @@ export async function readVideoMetadata(file) {
     
     // Parse mvhd (movie header)
     const mvhdBox = moovChildren.find(b => b.type === 'mvhd');
+    let timescale = 0;
     if (mvhdBox) {
       const mvhd = parseMvhd(buffer, mvhdBox);
+      timescale = mvhd.timescale || 0;
       if (mvhd.creationTime) {
         metadata.items.push({
           key: 'Creation Time',
@@ -244,6 +377,37 @@ export async function readVideoMetadata(file) {
           category: 'technical'
         });
       }
+    }
+    
+    // Parse trak boxes for codec, resolution, sample rate
+    const trakBoxes = moovChildren.filter(b => b.type === 'trak');
+    for (const trak of trakBoxes) {
+      try {
+        const trakInfo = parseTrakInfo(buffer, trak);
+        if (trakInfo) {
+          for (const item of trakInfo) {
+            metadata.items.push(item);
+          }
+        }
+      } catch (e) { /* non-critical */ }
+    }
+    
+    // File size info
+    metadata.items.push({
+      key: 'File Size',
+      value: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+      category: 'technical'
+    });
+    
+    // Estimate bitrate from size and duration
+    const mvhd2 = mvhdBox ? parseMvhd(buffer, mvhdBox) : null;
+    if (mvhd2 && mvhd2.duration > 0) {
+      const bitrate = (file.size * 8) / mvhd2.duration;
+      metadata.items.push({
+        key: 'Bitrate (est.)',
+        value: bitrate > 1000000 ? `${(bitrate / 1000000).toFixed(1)} Mbps` : `${(bitrate / 1000).toFixed(0)} kbps`,
+        category: 'technical'
+      });
     }
     
     // Parse udta (user data)
