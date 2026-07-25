@@ -395,6 +395,8 @@ header {
   font-size: 0.8rem;
   color: var(--text-muted);
   letter-spacing: 0.05em;
+  /* Give the format list some breathing room from the Select Files/Folder buttons. */
+  margin-top: var(--space-md);
 }
 
 .dropzone-buttons {
@@ -1411,6 +1413,18 @@ footer {
   padding: var(--space-sm) var(--space-md);
   margin-bottom: var(--space-md);
   animation: pulse-orange 2s ease-in-out infinite;
+}
+
+/* Session-only "already cleaned this session" hint (in-memory dedup, no disk trail) */
+.already-cleaned-badge {
+  margin-top: var(--space-xs);
+  font-size: 0.78rem;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.10);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  display: inline-block;
 }
 
 @keyframes pulse-orange {

@@ -23,7 +23,7 @@
     "title": "اپنی فائلیں یہاں ڈریگ اینڈ ڈراپ کریں",
     "or": "یا",
     "selectButton": "فائلیں منتخب کریں",
-    "formats": "JPEG, PNG, WebP, PDF, DOCX, XLSX, PPTX, MP4",
+    "formats": "JPEG, PNG, WebP, HEIC, TIFF, PDF, DOCX, XLSX, PPTX, MP4",
     "selectFolder": "فولڈر منتخب کریں"
   },
   "fileList": {

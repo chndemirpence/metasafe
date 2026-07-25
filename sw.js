@@ -3,7 +3,7 @@
  * Enables offline functionality and caching
  */
 
-const CACHE_NAME = 'metasafe-v6'; // bumped: all features complete (QR, safe share, batch UX)
+const CACHE_NAME = 'metasafe-v9'; // bumped: all features complete (QR, safe share, batch UX)
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
   '/lib/piexif.js',
   '/lib/pdf-lib.min.js',
   '/lib/jszip.min.js',
+  '/lib/libheif-bundle.mjs',
   '/assets/icons/favicon.svg'
 ];
 

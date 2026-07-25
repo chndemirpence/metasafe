@@ -23,7 +23,7 @@
     "title": "اسحب وأفلت ملفاتك هنا",
     "or": "أو",
     "selectButton": "اختر الملفات",
-    "formats": "JPEG، PNG، WebP، PDF، DOCX، XLSX، PPTX",
+    "formats": "JPEG، PNG، WebP، HEIC، TIFF، PDF، DOCX، XLSX، PPTX",
     "selectFolder": "اختيار مجلد"
   },
   "fileList": {

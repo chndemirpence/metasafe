@@ -109,6 +109,11 @@ const state = {
   language: 'tr',
   theme: 'dark',
   networkRequests: 0,
+  // Session-only dedup: SHA-256(original) -> { name, time }. Deliberately in-memory
+  // only (never localStorage/IndexedDB): a persistent on-disk record of which files
+  // you scrubbed is itself a forensic risk for the at-risk users this tool serves.
+  // It resets when the tab closes.
+  cleanedHashes: new Map(),
   options: {
     compress: false,
     quality: 85,
@@ -116,6 +121,13 @@ const state = {
     safeShare: false
   }
 };
+
+// SHA-256 hex of a file's bytes (Web Crypto). Used for session-only dedup.
+async function sha256Hex(file) {
+  const buf = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 // ===== Translations =====
 let translations = {};
@@ -322,8 +334,10 @@ function categorizeMetadata(items) {
   const temporalKeys = ['date', 'time', 'created', 'modified'];
   
   for (const item of items) {
-    const keyLower = item.key.toLowerCase();
-    
+    // Some processors label items with `label`/`name` instead of `key`; coalesce and
+    // guard against undefined so one odd item can't crash the whole card render.
+    const keyLower = String(item.key ?? item.label ?? item.name ?? '').toLowerCase();
+
     if (locationKeys.some(k => keyLower.includes(k))) {
       categories.location.items.push(item);
     } else if (deviceKeys.some(k => keyLower.includes(k))) {
@@ -347,9 +361,9 @@ function parseGPSCoordinates(metadata) {
   let lat = null, lon = null;
   
   for (const item of metadata.items) {
-    const key = item.key.toLowerCase();
+    const key = String(item.key ?? item.label ?? item.name ?? '').toLowerCase();
     const value = item.value;
-    
+
     if (key.includes('latitude') && !key.includes('ref')) {
       lat = parseFloat(value) || extractCoordinate(value);
     }
@@ -427,6 +441,12 @@ async function processFile(file) {
     fileData.metadata = metadata;
     fileData.riskScore = calculateRiskScore(metadata);
     fileData.gpsCoords = parseGPSCoordinates(metadata);
+
+    // Session-only dedup: flag if this exact file was already cleaned this session.
+    try {
+      fileData.originalHash = await sha256Hex(file);
+      fileData.alreadyCleaned = state.cleanedHashes.get(fileData.originalHash) || null;
+    } catch (_) { /* hashing is best-effort; never block cleaning on it */ }
     
     // Screenshot detection for images
     if (['jpeg', 'png', 'webp'].includes(fileType)) {
@@ -517,30 +537,51 @@ async function cleanFile(fileId) {
       cleanBlob = await safeShareProcess(cleanBlob, fileData.type);
     }
     
-    // Verify cleaning
-    const cleanFile = new File([cleanBlob], fileData.name, { type: fileData.file.type });
+    // Verify cleaning. Use the CLEANED blob's own type (HEIC is re-encoded to JPEG,
+    // so it must be re-read as JPEG). A verify step that has no case for the type
+    // would leave verifyMetadata undefined and silently report "verified" — that was
+    // the HEIC/TIFF false-safety bug, now fixed by covering both below.
+    const cleanFile = new File([cleanBlob], fileData.name, { type: cleanBlob.type || fileData.file.type });
     let verifyMetadata;
-    switch (fileData.type) {
-      case 'jpeg': verifyMetadata = await readJpegMetadata(cleanFile); break;
-      case 'png': verifyMetadata = await readPngMetadata(cleanFile); break;
-      case 'webp': verifyMetadata = await readWebpMetadata(cleanFile); break;
-      case 'pdf': verifyMetadata = await readPdfMetadata(cleanFile); break;
-      case 'docx':
-      case 'xlsx':
-      case 'pptx': verifyMetadata = await readOfficeMetadata(cleanFile); break;
-      case 'audio': verifyMetadata = await readAudioMetadata(cleanFile); break;
+    let verifyRan = true;
+    try {
+      switch (fileData.type) {
+        case 'jpeg': verifyMetadata = await readJpegMetadata(cleanFile); break;
+        case 'png': verifyMetadata = await readPngMetadata(cleanFile); break;
+        case 'webp': verifyMetadata = await readWebpMetadata(cleanFile); break;
+        case 'heic': verifyMetadata = await readJpegMetadata(cleanFile); break; // now a JPEG
+        case 'tiff': verifyMetadata = await readTIFFMetadata(cleanFile); break;
+        case 'pdf': verifyMetadata = await readPdfMetadata(cleanFile); break;
+        case 'docx':
+        case 'xlsx':
+        case 'pptx': verifyMetadata = await readOfficeMetadata(cleanFile); break;
+        case 'audio': verifyMetadata = await readAudioMetadata(cleanFile); break;
+        default: verifyRan = false; // no verifier for this type
+      }
+    } catch (verifyErr) {
+      // Couldn't re-read the cleaned file — do NOT claim verification passed.
+      console.warn('Verification read failed:', verifyErr);
+      verifyRan = false;
     }
+
+    // Only report "verified" when a verifier actually ran and found no high-risk
+    // metadata. Types without a verifier are reported as cleaned-but-not-verified.
+    const verified = verifyRan &&
+                     (!verifyMetadata?.items?.length ||
+                      verifyMetadata.items.filter(i => i.risk === 'high').length === 0);
     
-    const verified = !verifyMetadata?.items?.length || 
-                     verifyMetadata.items.filter(i => i.risk === 'high').length === 0;
-    
+    // HEIC is re-encoded to JPEG, so the output filename must use a .jpg extension.
+    const outName = fileData.type === 'heic'
+      ? fileData.name.replace(/\.(heic|heif)$/i, '.jpg')
+      : fileData.name;
+
     const result = {
       id: fileId,
       originalName: fileData.name,
       // Safe Share: anonymize filename (keep extension only)
-      cleanedName: state.options.safeShare 
-        ? `metasafe_${Date.now().toString(36)}.${fileData.name.split('.').pop()}`
-        : fileData.name,
+      cleanedName: state.options.safeShare
+        ? `metasafe_${Date.now().toString(36)}.${outName.split('.').pop()}`
+        : outName,
       originalSize: fileData.size,
       cleanedBlob: cleanBlob,
       cleanedSize: cleanBlob.size,
@@ -565,6 +606,11 @@ async function cleanFile(fileId) {
       console.warn('Certificate generation failed:', certErr);
     }
     
+    // Remember this original for session-only dedup (in-memory; see state.cleanedHashes).
+    if (fileData.originalHash) {
+      state.cleanedHashes.set(fileData.originalHash, { name: fileData.name, time: Date.now() });
+    }
+
     state.results.set(fileId, result);
     fileData.status = 'done';
     updateFileCard(fileData);
@@ -581,9 +627,17 @@ async function cleanFile(fileId) {
   } catch (err) {
     console.error('Clean error:', err);
     fileData.status = 'error';
-    fileData.error = err.message;
-    updateFileCard(fileData);
-    toast.error(`${fileData.name}: ${t('errors.cleanFailed')}`);
+    // Honest, specific message when a HEIC couldn't be decoded (even by libheif) —
+    // we refuse to fake a "clean" result. The file is likely corrupt/unsupported.
+    if (err && (err.code === 'HEIC_DECODE_UNSUPPORTED' || err.code === 'HEIC_DECODE_FAILED' || err.code === 'HEIC_DISPLAY_FAILED')) {
+      fileData.error = 'Bu HEIC/HEIF dosyası çözümlenemedi, bu yüzden içindeki konum/EXIF verisi GÜVENLE silinemedi (dosya bozuk olabilir). Fotoğrafı JPEG olarak dışa aktarıp tekrar deneyebilirsin (iPhone: Ayarlar → Kamera → Formatlar → "En Uyumlu").';
+      updateFileCard(fileData);
+      toast.error(`${fileData.name}: HEIC güvenle temizlenemedi (sahte "temiz" göstermiyoruz)`);
+    } else {
+      fileData.error = err.message;
+      updateFileCard(fileData);
+      toast.error(`${fileData.name}: ${t('errors.cleanFailed')}`);
+    }
     return null;
   }
 }
@@ -857,6 +911,11 @@ function getFileCardHTML(fileData) {
         <span class="file-type">${type.toUpperCase()}</span>
         <span class="file-status status-${status}">${statusLabels[status]}</span>
       </div>
+      ${fileData.alreadyCleaned ? `
+        <div class="already-cleaned-badge" title="Bu dosyanın aynısını bu oturumda zaten temizledin. Bu bilgi diske yazılmaz, sekmeyi kapatınca silinir.">
+          ♻️ Bu dosyayı bu oturumda zaten temizledin (${new Date(fileData.alreadyCleaned.time).toLocaleTimeString()})
+        </div>
+      ` : ''}
     </div>
     <div class="file-actions">
       ${status === 'ready' ? `
@@ -959,11 +1018,12 @@ window.downloadFile = function(fileId) {
   const url = URL.createObjectURL(result.cleanedBlob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `clean_${result.originalName}`;
+  // Use cleanedName so HEIC→JPEG (and Safe-Share renamed) files get the right extension.
+  a.download = result.cleanedName ? `clean_${result.cleanedName}` : `clean_${result.originalName}`;
   a.click();
   URL.revokeObjectURL(url);
-  
-  toast.success(`${result.originalName} indirildi`);
+
+  toast.success(`${result.cleanedName || result.originalName} indirildi`);
 };
 
 window.downloadCertificate = function(fileId) {
@@ -1513,6 +1573,7 @@ async function init() {
     else if (action === 'show-gps') showGPSOnMap(parseFloat(el.dataset.lat), parseFloat(el.dataset.lon));
     else if (action === 'select-all-cats') { window.selectAllCategories(); window.updateSelectiveUI(); }
     else if (action === 'deselect-all-cats') { window.deselectAllCategories(); window.updateSelectiveUI(); }
+    else if (action === 'close-modal') el.closest('.modal-overlay')?.remove();
   });
 
   // Selective-cleaning checkboxes use 'change', not 'click' (delegated).
@@ -1573,7 +1634,7 @@ function showQRCode(fileId) {
   modal.className = 'modal-overlay';
   modal.innerHTML = `
     <div class="modal-content qr-modal-content glass-card">
-      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+      <button class="modal-close" data-action="close-modal">✕</button>
       <h3>📱 QR Doğrulama Kodu</h3>
       <p class="qr-subtitle">Telefondan tarayarak dosyanın temizlendiğini doğrulayın</p>
       <div class="qr-container">

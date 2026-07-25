@@ -23,7 +23,7 @@
     "title": "将文件拖放到这里",
     "or": "或者",
     "selectButton": "选择文件",
-    "formats": "JPEG, PNG, WebP, PDF, DOCX, XLSX, PPTX, MP4",
+    "formats": "JPEG, PNG, WebP, HEIC, TIFF, PDF, DOCX, XLSX, PPTX, MP4",
     "selectFolder": "选择文件夹"
   },
   "fileList": {

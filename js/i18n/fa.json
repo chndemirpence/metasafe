@@ -23,7 +23,7 @@
     "title": "فایلهای خود را اینجا بکشید و رها کنید",
     "or": "یا",
     "selectButton": "انتخاب فایل",
-    "formats": "JPEG، PNG، WebP، PDF، DOCX، XLSX، PPTX",
+    "formats": "JPEG، PNG، WebP، HEIC، TIFF، PDF، DOCX، XLSX، PPTX",
     "selectFolder": "انتخاب پوشه"
   },
   "fileList": {

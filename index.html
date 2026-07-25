@@ -6,8 +6,11 @@
 
   <!-- Strict Content-Security-Policy: the app can make NO external network requests.
        Everything (scripts, styles, fonts, images, data) is same-origin/inline/data/blob only.
-       This makes the "zero upload / offline" promise enforceable and auditable. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+       This makes the "zero upload / offline" promise enforceable and auditable.
+       'wasm-unsafe-eval' is required ONLY so the bundled libheif WASM (HEIC/HEIF decode)
+       can compile. It permits WebAssembly compilation only — NOT arbitrary eval()/new Function
+       (libheif uses ccall/cwrap, no dynamic JS execution). No 'unsafe-eval' is present. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <!-- Note: also send `Content-Security-Policy: frame-ancestors 'none'` and
        `X-Content-Type-Options: nosniff` as HTTP headers at deploy (meta ignores frame-ancestors). -->
   <meta name="description" content="MetaSafe - Offline, privacy-first metadata cleaner. 100% in your browser, zero uploads, no tracking.">

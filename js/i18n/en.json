@@ -18,7 +18,7 @@
     "title": "Drag and drop your files here",
     "or": "or",
     "selectButton": "Select Files",
-    "formats": "JPEG, PNG, WebP, SVG, GIF, PDF, DOCX, XLSX, PPTX, MP4, MP3",
+    "formats": "JPEG, PNG, WebP, HEIC, TIFF, SVG, GIF, PDF, DOCX, XLSX, PPTX, MP4, MP3",
     "selectFolder": "Select Folder"
   },
   "fileList": {

@@ -23,7 +23,7 @@
     "title": "Перетащите файлы сюда",
     "or": "или",
     "selectButton": "Выбрать файлы",
-    "formats": "JPEG, PNG, WebP, PDF, DOCX, XLSX, PPTX",
+    "formats": "JPEG, PNG, WebP, HEIC, TIFF, PDF, DOCX, XLSX, PPTX",
     "selectFolder": "Выбрать папку"
   },
   "fileList": {

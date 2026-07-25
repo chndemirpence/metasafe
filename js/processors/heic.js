@@ -153,49 +153,138 @@ async function readHEICMetadata(file) {
 }
 
 /**
- * Clean HEIC metadata
- * Since full HEIC manipulation is complex, we strip by converting structure
+ * Clean HEIC/HEIF metadata — HONESTLY.
+ *
+ * The only reliable way to strip ALL metadata from a HEIC/HEIF in the browser is
+ * to fully DECODE the image and RE-ENCODE it: re-encoding drops every metadata box
+ * (EXIF, GPS, XMP, maker notes, thumbnails). We do this with createImageBitmap +
+ * canvas. Because browsers cannot *write* HEIC, the output is JPEG.
+ *
+ * IMPORTANT — why the old approach was removed: it scanned the bytes for the ASCII
+ * "Exif"/"GPS" markers and zeroed a few bytes. That was unsafe on two counts:
+ *   1. It matched those byte sequences inside the compressed image data too, so it
+ *      randomly corrupted pixels.
+ *   2. It left the real EXIF/GPS IFD payload (the actual lat/lon) intact while the
+ *      app reported "cleaned" — a FALSE sense of safety for exactly the at-risk
+ *      users this tool is for.
+ *
+ * If the browser cannot decode HEIC (Chrome/Firefox today), we do NOT fake it —
+ * we throw so the UI shows an honest error instead of a false "clean".
+ *
+ * @param {File} file
+ * @returns {Promise<Blob>} a metadata-free image/jpeg blob
+ */
+// Lazily-loaded libheif WASM instance (shared across calls). Loaded only when a
+// HEIC file is actually cleaned, so normal usage never pays the ~1.4MB cost.
+let _libheifPromise = null;
+function loadLibheif() {
+  if (!_libheifPromise) {
+    // libheif-bundle.mjs is self-contained (wasm embedded, no external fetch) and
+    // uses only ccall/cwrap — no eval/new Function — so it runs under a CSP of
+    // script-src 'self' 'wasm-unsafe-eval' (WASM compilation only, no arbitrary eval).
+    _libheifPromise = import('/lib/libheif-bundle.mjs')
+      .then((m) => m.default())
+      .catch((e) => { _libheifPromise = null; throw e; });
+  }
+  return _libheifPromise;
+}
+
+// Re-encode decoded RGBA pixels through a canvas → metadata-free JPEG.
+async function rgbaToJpegBlob(width, height, rgbaImageData) {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.putImageData(rgbaImageData, 0, 0);
+    return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.putImageData(rgbaImageData, 0, 0);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('HEIC re-encode failed'))), 'image/jpeg', 0.92)
+  );
+}
+
+async function bitmapToJpegBlob(bitmap) {
+  const { width, height } = bitmap;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(width, height);
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+    if (bitmap.close) bitmap.close();
+    return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0);
+  if (bitmap.close) bitmap.close();
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('HEIC re-encode failed'))), 'image/jpeg', 0.92)
+  );
+}
+
+// Decode HEIC via libheif (works in every browser), fill an ImageData, re-encode
+// to JPEG through canvas. The re-encode drops ALL metadata (EXIF/GPS/XMP/thumbnails).
+async function cleanHEICViaLibheif(file) {
+  const libheif = await loadLibheif();
+  const buffer = new Uint8Array(await file.arrayBuffer());
+
+  const decoder = new libheif.HeifDecoder();
+  const images = decoder.decode(buffer);
+  if (!images || images.length === 0) {
+    const err = new Error('HEIC_DECODE_FAILED');
+    err.code = 'HEIC_DECODE_FAILED';
+    throw err;
+  }
+
+  const image = images[0]; // primary image
+  const width = image.get_width();
+  const height = image.get_height();
+
+  // Need a 2D context to allocate an ImageData for libheif to fill.
+  const scratch = (typeof OffscreenCanvas !== 'undefined')
+    ? new OffscreenCanvas(width, height)
+    : Object.assign(document.createElement('canvas'), { width, height });
+  const scratchCtx = scratch.getContext('2d');
+  const imageData = scratchCtx.createImageData(width, height);
+
+  await new Promise((resolve, reject) => {
+    image.display(imageData, (displayData) => {
+      if (!displayData) reject(new Error('HEIC_DISPLAY_FAILED'));
+      else resolve();
+    });
+  });
+
+  // Free native memory where the wrapper supports it.
+  if (typeof image.free === 'function') image.free();
+
+  return rgbaToJpegBlob(width, height, imageData);
+}
+
+/**
+ * Clean HEIC/HEIF metadata — HONESTLY, on every browser.
+ *
+ * Path 1 (fast): browsers that decode HEIC natively (Safari) go through
+ * createImageBitmap — quickest, no WASM.
+ * Path 2 (universal): everywhere else, decode with the libheif WASM module.
+ *
+ * Either way the image is fully DECODED and RE-ENCODED to JPEG, which drops every
+ * metadata box. If BOTH decoders fail (genuinely broken/unsupported file) we throw
+ * instead of returning a fake "clean" — no false sense of safety for at-risk users.
+ *
+ * @param {File} file
+ * @returns {Promise<Blob>} a metadata-free image/jpeg blob
  */
 async function cleanHEICMetadata(file) {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  
+  // Path 1: native decode (Safari and any browser with HEIC support).
   try {
-    // Strategy: Remove/zero out EXIF data locations
-    // This is a simplified approach - full cleaning would require
-    // complete ISOBMFF parsing and reconstruction
-    
-    const result = new Uint8Array(buffer.byteLength);
-    result.set(bytes);
-    
-    // Find and neutralize common metadata patterns
-    for (let i = 0; i < result.length - 10; i++) {
-      // Look for "Exif" marker and zero it out
-      if (result[i] === 0x45 && result[i+1] === 0x78 && 
-          result[i+2] === 0x69 && result[i+3] === 0x66) {
-        // Zero out EXIF header area (be careful not to corrupt structure)
-        // Just mark as cleaned for now
-        result[i+4] = 0x00;
-        result[i+5] = 0x00;
-      }
-      
-      // Look for GPS marker
-      if (result[i] === 0x47 && result[i+1] === 0x50 && 
-          result[i+2] === 0x53) { // "GPS"
-        // Zero GPS data
-        for (let j = i; j < Math.min(i + 50, result.length); j++) {
-          if (result[j] !== 0x00) {
-            result[j] = 0x00;
-          }
-        }
-      }
-    }
-    
-    return new Blob([result], { type: 'image/heic' });
-    
-  } catch (e) {
-    console.error('Error cleaning HEIC:', e);
-    return new Blob([buffer], { type: 'image/heic' });
+    const bitmap = await createImageBitmap(file);
+    return await bitmapToJpegBlob(bitmap);
+  } catch (_) {
+    // Path 2: libheif WASM (Chrome/Firefox/Edge — no native HEIC).
+    return cleanHEICViaLibheif(file);
   }
 }
 
