@@ -506,7 +506,18 @@ export async function readVideoMetadata(file) {
       category: 'technical'
     });
   }
-  
+
+  // Normalize to the `risk` field the rest of the app (verify-after-clean,
+  // risk-score, category badges) reads. Items here were written with a
+  // `dangerous` boolean instead — without this, `item.risk` is undefined for
+  // every video item, so a check like `items.filter(i => i.risk==='high')`
+  // always finds zero, and cleaning would ALWAYS report "verified" even if
+  // GPS/timestamps were never actually removed.
+  for (const item of metadata.items) {
+    if (item.risk) continue;
+    item.risk = item.dangerous ? 'high' : 'low';
+  }
+
   return metadata;
 }
 

@@ -23,6 +23,7 @@ import { showGPSOnMap, createGPSBadgeHTML, initGPSMapModal } from './utils/gps-m
 import { generateReportData, downloadTXTReport } from './utils/report-generator.js';
 import { celebrateCleaning, celebrateSingleFile } from './utils/confetti.js';
 import { getCleaningSelection, generateSelectiveCleaningHTML } from './utils/selective-cleaning.js';
+import { analyzeBatchCorrelation } from './utils/batch-correlation.js';
 
 // Initialize certificate generator
 const certificateGen = new CleaningCertificate();
@@ -460,9 +461,10 @@ async function processFile(file) {
     }
     
     fileData.status = 'ready';
-    
+
     updateFileCard(fileData);
-    
+    renderBatchCorrelation();
+
     if (fileData.gpsCoords) {
       toast.warning(`⚠️ ${file.name}: GPS konum verisi bulundu!`);
     }
@@ -556,6 +558,10 @@ async function cleanFile(fileId) {
         case 'xlsx':
         case 'pptx': verifyMetadata = await readOfficeMetadata(cleanFile); break;
         case 'audio': verifyMetadata = await readAudioMetadata(cleanFile); break;
+        case 'svg': verifyMetadata = await readSVGMetadata(cleanFile); break;
+        case 'gif': verifyMetadata = await readGIFMetadata(cleanFile); break;
+        case 'eml': verifyMetadata = await readEMLMetadata(cleanFile); break;
+        case 'video': verifyMetadata = await readVideoMetadata(cleanFile); break;
         default: verifyRan = false; // no verifier for this type
       }
     } catch (verifyErr) {
@@ -633,6 +639,10 @@ async function cleanFile(fileId) {
       fileData.error = 'Bu HEIC/HEIF dosyası çözümlenemedi, bu yüzden içindeki konum/EXIF verisi GÜVENLE silinemedi (dosya bozuk olabilir). Fotoğrafı JPEG olarak dışa aktarıp tekrar deneyebilirsin (iPhone: Ayarlar → Kamera → Formatlar → "En Uyumlu").';
       updateFileCard(fileData);
       toast.error(`${fileData.name}: HEIC güvenle temizlenemedi (sahte "temiz" göstermiyoruz)`);
+    } else if (err && err.code === 'OGG_VORBIS_CLEAN_UNSUPPORTED') {
+      fileData.error = 'OGG Vorbis dosyaları için metadata temizleme henüz güvenle desteklenmiyor (Ogg konteynerinin sayfa/CRC yapısı bozulmadan düzenlenemiyor). Dosya değiştirilmedi — sahte "temiz" göstermiyoruz. FLAC veya MP3 olarak dışa aktarıp tekrar deneyebilirsin.';
+      updateFileCard(fileData);
+      toast.error(`${fileData.name}: OGG henüz güvenle temizlenemiyor (dosya değiştirilmedi)`);
     } else {
       fileData.error = err.message;
       updateFileCard(fileData);
@@ -960,10 +970,49 @@ function removeFile(fileId) {
   state.files.delete(fileId);
   state.results.delete(fileId);
   document.getElementById(`file-${fileId}`)?.remove();
-  
+
   if (state.files.size === 0) {
     document.getElementById('file-list-section')?.classList.add('hidden');
   }
+  renderBatchCorrelation();
+}
+
+// ===== Batch Correlation Risk (cross-file, not per-file) =====
+// See js/utils/batch-correlation.js for why this exists: single-file cleaning
+// can't see that 3 individually-clean photos still cluster around one GPS
+// point, or that 2 documents share an author name.
+function renderBatchCorrelation() {
+  const section = document.getElementById('batch-correlation-section');
+  if (!section) return;
+
+  const findings = analyzeBatchCorrelation([...state.files.values()]);
+  if (findings.length === 0) {
+    section.classList.add('hidden');
+    section.innerHTML = '';
+    return;
+  }
+
+  section.classList.remove('hidden');
+  section.innerHTML = `
+    <div class="glass-card correlation-card">
+      <div class="correlation-header">
+        <span class="correlation-icon">🔗</span>
+        <span class="correlation-title">Toplu Analiz: Dosyalar Arası Bağlantı Riski</span>
+      </div>
+      <p class="correlation-subtitle">Her dosya tek tek temizlense bile, birlikte paylaşıldıklarında ortaya çıkabilecek örüntüler:</p>
+      <div class="correlation-findings">
+        ${findings.map((f) => `
+          <div class="correlation-finding correlation-${f.severity}">
+            <span class="correlation-finding-icon">${f.severity === 'high' ? '🔴' : '🟡'}</span>
+            <div class="correlation-finding-body">
+              <div class="correlation-finding-message">${escapeHtml(f.message)}</div>
+              <div class="correlation-finding-files">${f.files.map((n) => escapeHtml(n)).join(', ')}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function renderResult(result) {
@@ -1277,6 +1326,7 @@ function initKeyboardShortcuts() {
       document.getElementById('results-list').innerHTML = '';
       document.getElementById('file-list-section')?.classList.add('hidden');
       document.getElementById('results-section')?.classList.add('hidden');
+      renderBatchCorrelation();
     }
   });
   
@@ -1546,6 +1596,7 @@ async function init() {
     state.files.clear();
     document.getElementById('file-list').innerHTML = '';
     document.getElementById('file-list-section')?.classList.add('hidden');
+    renderBatchCorrelation();
   });
   
   // Tab switching

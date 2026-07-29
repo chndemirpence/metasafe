@@ -531,17 +531,67 @@ async function cleanAudioMetadata(file) {
     case 'm4a':
       cleanedData = cleanM4A(uint8);
       break;
-    case 'ogg':
     case 'flac':
-      // For OGG/FLAC, full cleaning requires reencoding
-      // For now, just return original with warning
-      cleanedData = uint8;
+      cleanedData = cleanFLAC(uint8);
       break;
+    case 'ogg':
+      // Vorbis comments in OGG live inside an Ogg page (segment table + CRC32
+      // over the whole page). Splicing the comment block without rebuilding
+      // page framing and recalculating the CRC produces a corrupt file, so we
+      // refuse to fake a "clean" result here — see HEIC_DECODE_UNSUPPORTED for
+      // the same principle. The UI shows an honest, specific error instead.
+      throw Object.assign(new Error('OGG_VORBIS_CLEAN_UNSUPPORTED'), { code: 'OGG_VORBIS_CLEAN_UNSUPPORTED' });
     default:
       cleanedData = uint8;
   }
-  
+
   return new Blob([cleanedData], { type: file.type });
+}
+
+/**
+ * Strip the VORBIS_COMMENT metadata block from a FLAC file (vendor string +
+ * all user comments, e.g. ENCODER/ARTIST/COMMENT — flagged 'high'/'medium'
+ * risk by readVorbisComments). Unlike OGG, FLAC's metadata blocks are plain
+ * length-prefixed chunks with no page framing/CRC, so an in-place splice is
+ * safe.
+ */
+function cleanFLAC(uint8) {
+  if (!(uint8[0] === 0x66 && uint8[1] === 0x4C && uint8[2] === 0x61 && uint8[3] === 0x43)) {
+    return uint8; // not actually FLAC (defensive; isAudio/getAudioType already checked)
+  }
+
+  const EMPTY_VORBIS_COMMENT = new Uint8Array(8); // vendor_length=0, comment_count=0 (all zero bytes)
+  const parts = [uint8.slice(0, 4)]; // "fLaC" magic
+  let offset = 4;
+
+  while (offset < uint8.length - 4) {
+    const header = uint8[offset];
+    const blockType = header & 0x7f;
+    const isLast = (header & 0x80) !== 0;
+    const blockSize = (uint8[offset + 1] << 16) | (uint8[offset + 2] << 8) | uint8[offset + 3];
+    const blockEnd = offset + 4 + blockSize;
+
+    if (blockType === 4) {
+      // Rewrite this block's header with the new (much smaller) size, and
+      // swap its data for an empty Vorbis comment.
+      const newHeader = new Uint8Array(4);
+      newHeader[0] = (isLast ? 0x80 : 0) | 4;
+      newHeader[1] = (EMPTY_VORBIS_COMMENT.length >> 16) & 0xff;
+      newHeader[2] = (EMPTY_VORBIS_COMMENT.length >> 8) & 0xff;
+      newHeader[3] = EMPTY_VORBIS_COMMENT.length & 0xff;
+      parts.push(newHeader, EMPTY_VORBIS_COMMENT);
+    } else {
+      parts.push(uint8.slice(offset, blockEnd));
+    }
+
+    offset = blockEnd;
+    if (isLast) break;
+  }
+
+  // Everything after the metadata block chain (the actual audio frames).
+  parts.push(uint8.slice(offset));
+
+  return concatenateUint8Arrays(parts);
 }
 
 function cleanMP3(uint8) {

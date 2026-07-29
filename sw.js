@@ -3,7 +3,7 @@
  * Enables offline functionality and caching
  */
 
-const CACHE_NAME = 'metasafe-v9'; // bumped: all features complete (QR, safe share, batch UX)
+const CACHE_NAME = 'metasafe-v10'; // bumped: TIFF/SVG/EML/Office deep-clean fixes + batch correlation risk detector
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -15,6 +15,14 @@ const ASSETS_TO_CACHE = [
   '/js/processors/webp.js',
   '/js/processors/pdf.js',
   '/js/processors/office.js',
+  '/js/processors/svg.js',
+  '/js/processors/gif.js',
+  '/js/processors/eml.js',
+  '/js/processors/tiff.js',
+  '/js/processors/audio.js',
+  '/js/processors/video.js',
+  '/js/processors/heic.js',
+  '/js/utils/batch-correlation.js',
   '/js/workers/metadata-worker.js',
   '/js/utils/qrcode.js',
   '/lib/piexif.js',

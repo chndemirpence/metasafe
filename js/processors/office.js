@@ -3,6 +3,27 @@
  * Handles reading and removing metadata from Office Open XML files using JSZip
  */
 
+import { cleanJpegMetadata } from './jpeg.js';
+import { cleanPngMetadata } from './png.js';
+import { cleanWebpMetadata } from './webp.js';
+import { cleanGIFMetadata } from './gif.js';
+
+// Raster formats we can re-encode losslessly-enough via canvas/piexif. A DOCX/
+// XLSX/PPTX is a ZIP, and any photo pasted into the document sits untouched
+// under word/media|xl/media|ppt/media — cleaning only docProps/*.xml (as this
+// file used to) leaves that photo's own EXIF/GPS fully intact inside the
+// "cleaned" file. This maps embedded-media extensions to the same cleaners
+// used for standalone uploads, so a pasted photo gets the same treatment.
+const MEDIA_EXT_TO_CLEANER = {
+  jpg: { mime: 'image/jpeg', clean: cleanJpegMetadata },
+  jpeg: { mime: 'image/jpeg', clean: cleanJpegMetadata },
+  png: { mime: 'image/png', clean: cleanPngMetadata },
+  webp: { mime: 'image/webp', clean: cleanWebpMetadata },
+  gif: { mime: 'image/gif', clean: cleanGIFMetadata }
+};
+
+const MEDIA_PATH_RE = /\/media\/[^/]+\.([a-z0-9]+)$/i;
+
 // Office metadata fields and their risk levels
 const OFFICE_METADATA_RISK = {
   high: ['creator', 'lastModifiedBy', 'dc:creator', 'cp:lastModifiedBy'],
@@ -150,7 +171,28 @@ export async function readOfficeMetadata(file) {
           const customItems = parseXmlMetadata(customContent, 'custom.xml');
           metadata.items.push(...customItems);
         }
-        
+
+        // Detect embedded media (pasted photos etc.) — their OWN metadata
+        // (GPS/EXIF) survives unless we clean them too, not just docProps/*.xml.
+        const mediaFiles = Object.keys(zip.files).filter((path) => MEDIA_PATH_RE.test(path));
+        const cleanableMedia = mediaFiles.filter((path) => {
+          const ext = path.match(MEDIA_PATH_RE)[1].toLowerCase();
+          return !!MEDIA_EXT_TO_CLEANER[ext];
+        });
+        if (mediaFiles.length > 0) {
+          // Informational, not 'high': once cleaned, these images HAVE been
+          // re-encoded (see cleanOfficeMetadata) so their own GPS/EXIF is gone.
+          // Marking this 'high' would keep verify() reporting "unverified"
+          // forever on any document with a picture, even after real cleaning.
+          metadata.items.push({
+            key: 'EmbeddedMedia',
+            label: 'Gömülü Medya',
+            value: `${mediaFiles.length} gömülü resim (${cleanableMedia.length} tanesi Temizle ile birlikte temizlenir) — kendi EXIF/GPS verisi taşıyabilir`,
+            risk: 'medium'
+          });
+          metadata.riskCounts.medium++;
+        }
+
         // Count risks
         for (const item of metadata.items) {
           metadata.riskCounts[item.risk]++;
@@ -208,7 +250,27 @@ export async function cleanOfficeMetadata(file) {
         if (zip.file('docProps/custom.xml')) {
           zip.remove('docProps/custom.xml');
         }
-        
+
+        // Deep clean: re-encode every embedded photo through the same
+        // cleaner a standalone upload of that format would get, so a photo
+        // pasted into the document doesn't keep its own GPS/EXIF data.
+        const mediaFiles = Object.keys(zip.files).filter((path) => MEDIA_PATH_RE.test(path));
+        for (const path of mediaFiles) {
+          const ext = path.match(MEDIA_PATH_RE)[1].toLowerCase();
+          const cleaner = MEDIA_EXT_TO_CLEANER[ext];
+          if (!cleaner) continue; // unsupported embedded type (e.g. .emf/.wmf/.bin) — left as-is
+          try {
+            const bytes = await zip.file(path).async('uint8array');
+            const mediaFile = new File([bytes], path.split('/').pop(), { type: cleaner.mime });
+            const cleanedBlob = await cleaner.clean(mediaFile);
+            const cleanedBytes = new Uint8Array(await cleanedBlob.arrayBuffer());
+            zip.file(path, cleanedBytes);
+          } catch (mediaErr) {
+            console.warn(`Embedded media clean failed for ${path}:`, mediaErr);
+            // Leave that one file as-is rather than failing the whole document.
+          }
+        }
+
         // Generate cleaned file
         const cleanedBytes = await zip.generateAsync({
           type: 'blob',
