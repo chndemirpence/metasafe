@@ -7,9 +7,8 @@
 > reorganized "Open Internet Stack" effort. This draft is prepared now so
 > submission can happen the day the call reopens.
 >
-> Deliberately scoped DIFFERENT from MetaSafe's pending OTF Internet Freedom
-> Fund application (#22833, concept-note stage) — see "Other funding sources"
-> below for why, and why that's honest rather than double-dipping.
+> Scoped as a library-extraction effort (MetaSafe Core), distinct from the
+> main MetaSafe application itself.
 
 ---
 
@@ -54,7 +53,7 @@ Extract all 12 format cleaners from the application into a standalone module wit
 *Deliverable: public alpha release on npm; test suite green in CI; migration notes for MetaSafe itself to depend on the extracted library (dogfooding, not just publishing).*
 
 **Milestone 2 — Independent security review (3–4 weeks, €5,000).**
-Commission a third-party review of the extracted library specifically — its own attack surface as a standalone dependency (e.g. what happens if it's fed malformed/truncated input directly, without the application's own file-type gating in front of it). This is a different review surface from the *application* audit requested from OTF (see "Other funding sources"). Remediate findings, tag a 1.0.
+Commission a third-party review of the extracted library specifically — its own attack surface as a standalone dependency (e.g. what happens if it's fed malformed/truncated input directly, without the application's own file-type gating in front of it). Remediate findings, tag a 1.0.
 *Deliverable: public audit report; 1.0 release on npm.*
 
 **Milestone 3 — Documentation and adoption (3–4 weeks, €4,000).**
