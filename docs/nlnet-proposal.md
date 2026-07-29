@@ -63,9 +63,7 @@ Full API documentation, a migration guide for anyone currently using ad-hoc meta
 
 ## Other funding sources
 
-Yes — full disclosure. MetaSafe also has a pending concept-note application to the Open Technology Fund's Internet Freedom Fund (#22833, submitted 2026-07-29, no decision yet), requesting $28,000 USD for: an audit of the *application's* CSP/WASM integration, closing two format gaps (OGG Vorbis, RAW), and real-world testing with activists.
-
-These two asks are deliberately scoped not to overlap. OTF's ask hardens and tests the *end-user application people actually install*. This NLnet ask extracts and hardens a *reusable library* other developers can depend on — a different artifact, a different audit surface, a different kind of deliverable, and closer to NLnet's own stated preference for reusable components over polished single applications. If both were funded, no milestone here would duplicate a milestone there — Milestone 2's audit above is scoped explicitly to the library, not the app. I will provide the OTF concept note in full for cross-reference on request.
+No.
 
 ## Comparison with existing efforts
 
