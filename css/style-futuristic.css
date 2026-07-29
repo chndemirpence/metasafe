@@ -221,6 +221,15 @@ header {
   box-shadow: var(--glow-blue);
 }
 
+/* ===== Premium line-icon set (assets/icons/ui/, inlined via js/utils/icons.js) =====
+   currentColor stroke so icons inherit theme/accent color automatically. */
+.icon {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
+
 .theme-toggle {
   width: 40px;
   height: 40px;
@@ -238,6 +247,33 @@ header {
   border-color: var(--neon-pink);
   box-shadow: var(--glow-pink);
   transform: rotate(180deg);
+}
+
+/* ===== Panic Wipe ===== */
+.panic-wipe-btn {
+  height: 40px;
+  padding: 0 var(--space-md);
+  border-radius: 20px;
+  background: rgba(255, 40, 40, 0.12);
+  border: 1px solid rgba(255, 60, 60, 0.5);
+  color: #ff5252;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.panic-wipe-btn:hover {
+  background: rgba(255, 40, 40, 0.28);
+  border-color: #ff5252;
+  box-shadow: 0 0 16px rgba(255, 60, 60, 0.4);
+}
+
+.panic-wipe-btn:active {
+  transform: scale(0.96);
 }
 
 /* ===== Privacy Notice ===== */
@@ -1563,6 +1599,66 @@ footer {
 
 .map-modal {
   max-width: 600px;
+}
+
+/* ===== Redaction Editor ===== */
+.redaction-modal-content {
+  max-width: min(960px, 95vw);
+}
+
+.redaction-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-sm);
+}
+
+.redaction-canvas-wrap {
+  display: flex;
+  justify-content: center;
+  background: repeating-conic-gradient(#2a2a3a 0% 25%, #1e1e2a 0% 50%) 50% / 20px 20px;
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  overflow: auto;
+}
+
+.redaction-canvas {
+  cursor: crosshair;
+  max-width: 100%;
+  border-radius: 4px;
+  touch-action: none;
+}
+
+.redaction-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.redaction-spacer {
+  flex: 1;
+}
+
+.redaction-page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.pdf-redaction-page-label {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  min-width: 90px;
+  text-align: center;
+}
+
+.pdf-redaction-status {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .modal-header {

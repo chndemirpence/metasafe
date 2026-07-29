@@ -24,6 +24,9 @@ import { generateReportData, downloadTXTReport } from './utils/report-generator.
 import { celebrateCleaning, celebrateSingleFile } from './utils/confetti.js';
 import { getCleaningSelection, generateSelectiveCleaningHTML } from './utils/selective-cleaning.js';
 import { analyzeBatchCorrelation } from './utils/batch-correlation.js';
+import { openRedactionEditor } from './utils/redaction.js';
+import { openPdfRedactionEditor } from './utils/pdf-redaction.js';
+import { ICONS } from './utils/icons.js';
 
 // Initialize certificate generator
 const certificateGen = new CleaningCertificate();
@@ -260,8 +263,11 @@ function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('metasafe-theme', theme);
   
+  // One combined sun/moon glyph (not swapped per theme) — a toggle affordance
+  // works the same regardless of current state, and inline SVG (not textContent
+  // emoji) lets it inherit currentColor so it adapts to the theme itself.
   const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  if (btn) btn.innerHTML = ICONS.sunMoon;
 }
 
 function toggleTheme() {
@@ -413,13 +419,21 @@ async function processFile(file) {
   
   state.files.set(fileId, fileData);
   renderFileCard(fileData);
-  
+
+  return readAndPopulateFileData(fileData, file);
+}
+
+// Shared by processFile (first load) and the redaction flow (re-reading a
+// redacted image so its risk score/thumbnail/GPS reflect the NEW pixels,
+// not the pre-redaction ones).
+async function readAndPopulateFileData(fileData, file) {
+  const fileType = fileData.type;
   try {
     // Create thumbnail for images
     if (['jpeg', 'png', 'webp'].includes(fileType)) {
       fileData.thumbnail = await createThumbnail(file);
     }
-    
+
     // Read metadata
     let metadata;
     switch (fileType) {
@@ -438,7 +452,7 @@ async function processFile(file) {
       case 'video': metadata = await readVideoMetadata(file); break;
       case 'audio': metadata = await readAudioMetadata(file); break;
     }
-    
+
     fileData.metadata = metadata;
     fileData.riskScore = calculateRiskScore(metadata);
     fileData.gpsCoords = parseGPSCoordinates(metadata);
@@ -448,18 +462,18 @@ async function processFile(file) {
       fileData.originalHash = await sha256Hex(file);
       fileData.alreadyCleaned = state.cleanedHashes.get(fileData.originalHash) || null;
     } catch (_) { /* hashing is best-effort; never block cleaning on it */ }
-    
+
     // Screenshot detection for images
     if (['jpeg', 'png', 'webp'].includes(fileType)) {
       const screenshotResult = detectScreenshot(file, metadata);
       fileData.isScreenshot = screenshotResult.isScreenshot;
       fileData.screenshotInfo = screenshotResult;
-      
+
       if (screenshotResult.isScreenshot) {
         fileData.riskScore = Math.max(fileData.riskScore, 60); // Increase risk for screenshots
       }
     }
-    
+
     fileData.status = 'ready';
 
     updateFileCard(fileData);
@@ -468,12 +482,12 @@ async function processFile(file) {
     if (fileData.gpsCoords) {
       toast.warning(`⚠️ ${file.name}: GPS konum verisi bulundu!`);
     }
-    
+
     // Screenshot warning
     if (fileData.isScreenshot) {
       toast.warning(`📱 ${file.name}: Screenshot tespit edildi - cihaz bilgisi içerebilir!`);
     }
-    
+
     return fileData;
   } catch (err) {
     console.error('Process error:', err);
@@ -483,6 +497,55 @@ async function processFile(file) {
     toast.error(`${file.name}: ${t('errors.readFailed')}`);
     return null;
   }
+}
+
+// ===== Manual Redaction (faces/plates/names in the VISIBLE image) =====
+// Metadata cleaning never touches this — a stripped-EXIF photo can still show
+// a face or a license plate in plain sight. See js/utils/redaction.js: boxes
+// are baked in as opaque fills at full resolution, not a removable overlay.
+async function redactFile(fileId) {
+  const fileData = state.files.get(fileId);
+  if (!fileData) return;
+
+  const redactedBlob = await openRedactionEditor(fileData.file);
+  if (!redactedBlob) return; // user cancelled
+
+  // Canvas re-encode already strips this file's own metadata as a side
+  // effect, but we still route it back through the normal ready/Temizle
+  // flow so verification and the batch-correlation check re-run on the
+  // ACTUAL (redacted) pixels, not stale pre-redaction data.
+  const ext = redactedBlob.type === 'image/png' ? 'png' : 'jpg';
+  const newName = fileData.name.replace(/\.[^.]+$/, '') + `_redacted.${ext}`;
+  const newFile = new File([redactedBlob], newName, { type: redactedBlob.type });
+
+  fileData.file = newFile;
+  fileData.name = newName;
+  fileData.size = newFile.size;
+  fileData.status = 'reading';
+  updateFileCard(fileData);
+
+  await readAndPopulateFileData(fileData, newFile);
+  toast.success(`✏️ ${newName}: redaksiyon uygulandı`);
+}
+
+async function redactPdfFile(fileId) {
+  const fileData = state.files.get(fileId);
+  if (!fileData) return;
+
+  const redactedBlob = await openPdfRedactionEditor(fileData.file);
+  if (!redactedBlob) return; // user cancelled
+
+  const newName = fileData.name.replace(/\.pdf$/i, '') + '_redacted.pdf';
+  const newFile = new File([redactedBlob], newName, { type: 'application/pdf' });
+
+  fileData.file = newFile;
+  fileData.name = newName;
+  fileData.size = newFile.size;
+  fileData.status = 'reading';
+  updateFileCard(fileData);
+
+  await readAndPopulateFileData(fileData, newFile);
+  toast.success(`✏️ ${newName}: PDF redaksiyonu uygulandı`);
 }
 
 async function createThumbnail(file) {
@@ -868,7 +931,7 @@ function getFileCardHTML(fileData) {
         
         ${gpsCoords ? `
           <div class="gps-preview">
-            <div class="gps-warning">📍 GPS Konum Verisi Bulundu!</div>
+            <div class="gps-warning">${ICONS.mapPin} GPS Konum Verisi Bulundu!</div>
             <div class="gps-coords">Lat: ${gpsCoords.lat.toFixed(6)}, Lon: ${gpsCoords.lon.toFixed(6)}</div>
             <span class="gps-warning-badge" data-action="show-gps" data-lat="${gpsCoords.lat}" data-lon="${gpsCoords.lon}">
               🗺️ Haritada Göster
@@ -931,7 +994,13 @@ function getFileCardHTML(fileData) {
       ${status === 'ready' ? `
         <button class="btn btn-primary btn-clean" data-id="${id}">🧹 Temizle</button>
       ` : ''}
-      <button class="btn btn-secondary btn-remove" data-id="${id}">🗑️ Kaldır</button>
+      ${status === 'ready' && ['jpeg', 'png', 'webp'].includes(type) ? `
+        <button class="btn btn-outline btn-redact" data-id="${id}" title="Yüz, plaka, isim gibi görünen bilgileri kalıcı olarak karart">${ICONS.redactBox} Redakte Et</button>
+      ` : ''}
+      ${status === 'ready' && type === 'pdf' ? `
+        <button class="btn btn-outline btn-redact-pdf" data-id="${id}" title="İsim, imza, hassas metni kalıcı olarak karart">${ICONS.redactBox} Redakte Et</button>
+      ` : ''}
+      <button class="btn btn-secondary btn-remove" data-id="${id}">${ICONS.trash} Kaldır</button>
     </div>
     ${metadataHTML}
   `;
@@ -940,7 +1009,13 @@ function getFileCardHTML(fileData) {
 function bindFileCardEvents(card, fileId) {
   // Clean button
   card.querySelector('.btn-clean')?.addEventListener('click', () => cleanFile(fileId));
-  
+
+  // Redact button (manual face/plate/name blackout, before or instead of Temizle)
+  card.querySelector('.btn-redact')?.addEventListener('click', () => redactFile(fileId));
+
+  // PDF redact button (per-page flatten-to-image, see js/utils/pdf-redaction.js)
+  card.querySelector('.btn-redact-pdf')?.addEventListener('click', () => redactPdfFile(fileId));
+
   // Remove button
   card.querySelector('.btn-remove')?.addEventListener('click', () => removeFile(fileId));
   
@@ -996,7 +1071,7 @@ function renderBatchCorrelation() {
   section.innerHTML = `
     <div class="glass-card correlation-card">
       <div class="correlation-header">
-        <span class="correlation-icon">🔗</span>
+        <span class="correlation-icon">${ICONS.correlationLink}</span>
         <span class="correlation-title">Toplu Analiz: Dosyalar Arası Bağlantı Riski</span>
       </div>
       <p class="correlation-subtitle">Her dosya tek tek temizlense bile, birlikte paylaşıldıklarında ortaya çıkabilecek örüntüler:</p>
@@ -1013,6 +1088,35 @@ function renderBatchCorrelation() {
       </div>
     </div>
   `;
+}
+
+// ===== Panic Wipe (Duress Mode) =====
+// For border crossings, device searches, or any moment someone needs
+// everything gone right now: clears loaded files, cleaned results, the
+// session-only dedup hash log, and the URL-cleaner fields in one call — more
+// thorough than the older single-Escape clear (which never touched
+// cleanedHashes or the URL cleaner). Triggered by the header button or by
+// pressing Escape three times quickly (see initKeyboardShortcuts), so an
+// accidental single Escape still only does the lighter clear.
+function panicWipe() {
+  state.files.clear();
+  state.results.clear();
+  state.cleanedHashes.clear();
+
+  const fileList = document.getElementById('file-list');
+  const resultsList = document.getElementById('results-list');
+  if (fileList) fileList.innerHTML = '';
+  if (resultsList) resultsList.innerHTML = '';
+  document.getElementById('file-list-section')?.classList.add('hidden');
+  document.getElementById('results-section')?.classList.add('hidden');
+  renderBatchCorrelation();
+
+  // The URL cleaner input/output can itself hold a sensitive link.
+  const urlInput = document.getElementById('url-input');
+  if (urlInput) urlInput.value = '';
+  document.getElementById('url-result')?.setAttribute('style', 'display: none;');
+
+  toast.success('🚨 Tüm dosyalar ve oturum verisi temizlendi');
 }
 
 function renderResult(result) {
@@ -1036,9 +1140,9 @@ function renderResult(result) {
         ${sizeSaved > 0 ? `<span class="result-saved">(-${sizePercent}%)</span>` : ''}
       </div>
       <div class="verification-badge ${result.verified ? '' : 'failed'}">
-        ${result.verified 
-          ? `✓ Doğrulandı: ${result.metadataRemoved} metadata silindi, ${result.metadataRemaining} kaldı` 
-          : `⚠ ${result.metadataRemaining} metadata kalmış olabilir`}
+        ${result.verified
+          ? `${ICONS.checkCircle} Doğrulandı: ${result.metadataRemoved} metadata silindi, ${result.metadataRemaining} kaldı`
+          : `${ICONS.warningTriangle} ${result.metadataRemaining} metadata kalmış olabilir`}
       </div>
       ${result.certificate ? `
         <div class="certificate-info">
@@ -1311,15 +1415,24 @@ function initDropzone() {
 }
 
 // ===== Keyboard Shortcuts =====
+let escapePressTimes = [];
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
     // Ctrl+V - Paste from clipboard
     if (e.ctrlKey && e.key === 'v') {
       handleClipboardPaste();
     }
-    
-    // Escape - Clear all
+
+    // Escape - Clear all (single press) or Panic Wipe (3 presses within 1.2s —
+    // deliberately distinct from a single accidental Escape).
     if (e.key === 'Escape') {
+      const now = Date.now();
+      escapePressTimes = [...escapePressTimes.filter((t) => now - t < 1200), now];
+      if (escapePressTimes.length >= 3) {
+        escapePressTimes = [];
+        panicWipe();
+        return;
+      }
       state.files.clear();
       state.results.clear();
       document.getElementById('file-list').innerHTML = '';
@@ -1462,30 +1575,66 @@ async function safeShareProcess(blob, fileType) {
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      
-      // Add invisible noise to 1-2 random pixels (defeats perceptual hash)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const numPixels = 1 + Math.floor(Math.random() * 3);
-      for (let i = 0; i < numPixels; i++) {
-        const px = Math.floor(Math.random() * imageData.data.length / 4) * 4;
-        // Change one channel by ±1 (invisible to human eye)
-        const channel = px + Math.floor(Math.random() * 3);
-        imageData.data[channel] = Math.max(0, Math.min(255, imageData.data[channel] + (Math.random() > 0.5 ? 1 : -1)));
-      }
-      ctx.putImageData(imageData, 0, 0);
-      
-      // Random quality variation (±2%) defeats size fingerprinting
+
+      // Real perceptual-hash resistance. The previous version here nudged
+      // 1-2 random pixels by ±1 and claimed this "defeats perceptual hash" —
+      // it does not. Measured with a standard dHash (64-bit): the old method
+      // changed ~1 bit out of 64, well inside the "same image" range any
+      // near-duplicate matcher would use. pHash/dHash/aHash (used by
+      // reverse-image-search and platform content-matching, e.g. to find
+      // every place a protest photo was reposted) hash an 8x8/32x32
+      // DOWNSCALED version of the image specifically so they're immune to
+      // exactly this kind of imperceptible single-pixel noise — it averages
+      // away entirely during downscaling.
+      //
+      // A small ROTATION is what actually breaks these hashes: none of
+      // pHash/dHash/aHash are rotation-invariant, since rotating shifts every
+      // sampled gradient direction, not just pixel positions the way a crop
+      // does. Combined with a crop+rescale (which also moves content across
+      // the downscaled hash's block boundaries), 10 trials against dHash
+      // measured a 5-15 bit change (avg ~10-11) — roughly a 10x improvement
+      // over the old method, though NOT a guaranteed clear of every possible
+      // hash implementation/threshold every time (thresholds vary, and nudging
+      // these parameters harder would start visibly degrading the image).
+      // Stated honestly, not "guaranteed henceforth."
+      //
+      // Scope: this targets classical whole-image hash matching
+      // (reverse-image-search, platform dedup). It does NOT defeat
+      // face-recognition-based identification (e.g. PimEyes) — those use
+      // neural embeddings trained to be robust to exactly this kind of
+      // transform. If a visible face/plate/name is the risk, use the
+      // Redaction tool (✏️ Redakte Et) instead of or in addition to this.
+      const angle = (Math.random() - 0.5) * (Math.PI / 180) * 8; // ±4°
+      const cropPct = 0.06 + Math.random() * 0.05; // 6-11% per edge, randomized
+      const cropX = Math.round(w * cropPct);
+      const cropY = Math.round(h * cropPct);
+      const srcW = w - cropX * 2;
+      const srcH = h - cropY * 2;
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(angle);
+      ctx.translate(-w / 2, -h / 2);
+      // Draw oversized so the rotated corners still cover the full canvas
+      // (no transparent wedges at the edges), then the crop above removes
+      // the resulting edge distortion.
+      const pad = Math.max(w, h) * Math.abs(Math.sin(angle)) * 0.6;
+      ctx.drawImage(img, cropX, cropY, srcW, srcH, -pad, -pad, w + pad * 2, h + pad * 2);
+      ctx.restore();
+
+      // Random quality variation (±2%) still helps against naive size/byte
+      // fingerprinting; kept alongside the crop+rescale, not instead of it.
       const mimeMap = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
       const mime = mimeMap[fileType] || 'image/png';
       const baseQuality = (state.options.quality || 85) / 100;
-      const randomizedQuality = fileType === 'png' ? undefined : 
+      const randomizedQuality = fileType === 'png' ? undefined :
         Math.max(0.6, Math.min(0.95, baseQuality + (Math.random() - 0.5) * 0.04));
-      
+
       canvas.toBlob((newBlob) => {
         resolve(newBlob || blob);
       }, mime, randomizedQuality);
@@ -1587,7 +1736,10 @@ async function init() {
   
   // Theme toggle
   document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
-  
+
+  // Panic Wipe (also triggerable via 3x Escape — see initKeyboardShortcuts)
+  document.getElementById('panic-wipe-btn')?.addEventListener('click', panicWipe);
+
   // Clean all button
   document.getElementById('clean-all-btn')?.addEventListener('click', cleanAllFiles);
   

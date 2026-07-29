@@ -3,7 +3,7 @@
  * Enables offline functionality and caching
  */
 
-const CACHE_NAME = 'metasafe-v10'; // bumped: TIFF/SVG/EML/Office deep-clean fixes + batch correlation risk detector
+const CACHE_NAME = 'metasafe-v11'; // bumped: manual redaction (image + PDF), panic wipe, real fingerprint resistance
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -23,12 +23,17 @@ const ASSETS_TO_CACHE = [
   '/js/processors/video.js',
   '/js/processors/heic.js',
   '/js/utils/batch-correlation.js',
+  '/js/utils/redaction.js',
+  '/js/utils/pdf-redaction.js',
+  '/js/utils/icons.js',
   '/js/workers/metadata-worker.js',
   '/js/utils/qrcode.js',
   '/lib/piexif.js',
   '/lib/pdf-lib.min.js',
   '/lib/jszip.min.js',
   '/lib/libheif-bundle.mjs',
+  '/lib/pdfjs.mjs',
+  '/lib/pdfjs.worker.mjs',
   '/assets/icons/favicon.svg'
 ];
 
